@@ -200,35 +200,94 @@ function displayData(schoolName, adminName, sectionKey, data){
     <p>الإدارة: ${adminName} | القسم: ${sectionLabel}</p>
   </div>`;
 
-  if(!sectionData){ html += `<div class="data-card"><h3>⚠️ لا توجد بيانات</h3><div class="content"><p>لا توجد بيانات لهذا القسم</p></div></div>`; result.innerHTML = html; return; }
+  if(!sectionData){ 
+    html += `<div class="data-card"><h3>⚠️ لا توجد بيانات</h3><div class="content"><p>لا توجد بيانات محفوظة لهذا القسم</p></div></div>`; 
+    result.innerHTML = html; 
+    return; 
+  }
 
   if(sectionKey === 'school-info'){ html += renderInfo(sectionData); }
   else if(sectionKey === 'buildings'){ html += renderBuildings(sectionData); }
   else if(Array.isArray(sectionData)){ html += renderTable(sectionLabel, sectionData); }
-  else { html += `<div class="data-card"><h3>📋 ${sectionLabel}</h3><div class="content"><pre style="text-align:right;direction:rtl;font-family:Tajawal;white-space:pre-wrap;font-size:12px;">${JSON.stringify(sectionData, null, 2)}</pre></div></div>`; }
+  else { html += renderGeneric(sectionLabel, sectionData); }
 
   result.innerHTML = html;
 }
 
-function renderInfo(data){
-  const fields = [['schoolName','اسم المدرسة'],['quality','النوعية'],['admin','الإدارة'],['address','العنوان'],['phone','التليفون'],['manager','مسئول الإدارة']];
+function renderGeneric(title, data){
+  if(typeof data !== 'object'){
+    return `<div class="data-card"><h3>📋 ${title}</h3><div class="content"><p>${data}</p></div></div>`;
+  }
+  const labels = {
+    schoolName: 'اسم المدرسة', quality: 'النوعية', admin: 'الإدارة',
+    address: 'العنوان', phone: 'التليفون', manager: 'مسئول الإدارة'
+  };
   let rows = '';
-  fields.forEach(([k,label]) => { rows += `<div class="data-row"><span class="data-label">${label}</span><span class="data-value">${data[k] || '—'}</span></div>`; });
+  for(let k in data){
+    if(data[k]){
+      rows += `<div class="data-row"><span class="data-label">${labels[k] || k}</span><span class="data-value">${data[k]}</span></div>`;
+    }
+  }
+  return `<div class="data-card"><h3>📋 ${title}</h3><div class="content">${rows}</div></div>`;
+}
+
+function renderInfo(data){
+  const labels = {
+    schoolName: 'اسم المدرسة', quality: 'النوعية', admin: 'الإدارة التعليمية',
+    address: 'العنوان', phone: 'رقم التليفون', manager: 'مسئول الإدارة'
+  };
+  let rows = '';
+  for(let k in data){
+    if(data[k] && labels[k]){
+      rows += `<div class="data-row"><span class="data-label">${labels[k]}</span><span class="data-value">${data[k]}</span></div>`;
+    }
+  }
   return `<div class="data-card"><h3>📋 بيانات المدرسة</h3><div class="content">${rows}</div></div>`;
 }
 
 function renderBuildings(rows){
   if(!rows || !rows.length){ return `<div class="data-card"><h3>🏛️ المباني</h3><div class="content"><p>لا توجد بيانات</p></div></div>`; }
+  const statusLabels = {
+    'مقبول': 'مقبول', 'جيد': 'جيد', 'ممتاز': 'ممتاز',
+    'متوفر بحالة جيدة': '✅ جيد', 'متوفر بحالة غير جيدة': '⚠️ غير جيد', 'غير متوفر': '❌ غير متوفر'
+  };
   let rowsHTML = '';
-  rows.forEach((row, i) => { rowsHTML += `<div class="data-row"><span class="data-label">${i+1}. ${row.name || '—'}</span><span class="data-value">${row.conditionStatus || '—'}</span></div>`; });
+  rows.forEach((row, i) => {
+    const status = statusLabels[row.conditionStatus] || row.conditionStatus || '—';
+    rowsHTML += `<div class="data-row"><span class="data-label">${i+1}. ${row.name || '—'}</span><span class="data-value">${status}</span></div>`;
+  });
   return `<div class="data-card"><h3>🏛️ المباني (${rows.length})</h3><div class="content">${rowsHTML}</div></div>`;
 }
 
 function renderTable(title, rows){
   if(!rows || !rows.length){ return `<div class="data-card"><h3>📋 ${title}</h3><div class="content"><p>لا توجد صفوف</p></div></div>`; }
-  const cols = Object.keys(rows[0]).filter(k => rows[0][k] !== undefined && rows[0][k] !== '');
-  const headerHTML = cols.map(c => `<th>${c}</th>`).join('');
-  const rowsHTML = rows.map(row => { const cells = cols.map(c => `<td>${row[c] !== undefined ? row[c] : '—'}</td>`).join(''); return `<tr>${cells}</tr>`; }).join('');
+
+  // Column header translations
+  const colLabels = {
+    name: 'الاسم', subject: 'المادة', job: 'الوظيفة',
+    practical: 'عملي', theory: 'نظري', industrial: 'صناعي',
+    count: 'العدد', notes: 'ملاحظات',
+    regular: 'منتظم', services: 'خدمات', workers: 'عمال',
+    vocational: 'مهني', inclusion: 'دمج', total: 'الإجمالي',
+    grade: 'الصف',
+    housing: 'مسكن', delegated: 'منتدب', overtime: 'عمل إضافي',
+    required: 'اللازم', teacher_normal: 'معلم', teacher_first: 'معلم أول',
+    teacher_first_a: 'معلم أول أ', teacher_expert: 'معلم خبير',
+    teacher_senior: 'معلم كبير', actual: 'الموجود', diff: 'الفرق',
+    status: 'الحالة', solution: 'الحل',
+    floors: 'الطوابق', classrooms: 'الفصول', conditionStatus: 'الحالة',
+    extinguishersStatus: 'طفايات', sandBucketsStatus: 'جرادل رمل',
+    hosesStatus: 'خراطيم', exitsStatus: 'مخارج', signsStatus: 'علامات',
+    safetyRatingStatus: 'تقييم السلامة'
+  };
+
+  const cols = Object.keys(rows[0]).filter(k => rows[0][k] !== undefined && rows[0][k] !== '' && k !== 'grade');
+  const headerHTML = cols.map(c => `<th>${colLabels[c] || c}</th>`).join('');
+  const rowsHTML = rows.map(row => {
+    const cells = cols.map(c => `<td>${row[c] !== undefined ? row[c] : '—'}</td>`).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+
   return `<div class="data-card"><h3>📋 ${title} (${rows.length} صف)</h3><div class="content table-wrap"><table><thead><tr>${headerHTML}</tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
 }
 

@@ -1301,7 +1301,21 @@ function generateQR(secKey){
   }
   const schoolCode = Math.abs(schoolHash).toString(36).substring(0, 6).toUpperCase();
 
-  const viewerUrl = 'viewer.html?a=' + adminCode + '&s=' + schoolCode + '&sec=' + secKey;
+  // Auto-detect base URL from current location
+// Works automatically on GitHub Pages, Netlify, etc.
+function getBaseUrl(){
+  const loc = window.location;
+  // If running on file:// (local), return empty (relative)
+  if(loc.protocol === 'file:') return '';
+  // Otherwise use the current origin + pathname directory
+  let path = loc.pathname;
+  // Remove filename from path (keep directory)
+  const lastSlash = path.lastIndexOf('/');
+  if(lastSlash !== -1) path = path.substring(0, lastSlash + 1);
+  return loc.origin + path;
+}
+
+const viewerUrl = getBaseUrl() + 'viewer.html?a=' + adminCode + '&s=' + schoolCode + '&sec=' + secKey;
 
   const wrap = document.createElement('div');
   wrap.className = 'qr-wrap';
@@ -1347,11 +1361,13 @@ function refreshAllQR(){
 function testQR(){
   const div = document.createElement('div');
   div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:2px solid #000;padding:20px;z-index:99999;text-align:center;';
-  div.innerHTML = '<h3 style="margin:0 0 10px;font-family:Changa;">اختبار QR</h3><div id="test-qr"></div><br><button onclick="this.parentElement.remove()" style="padding:8px 16px;font-family:Changa;cursor:pointer;">إغلاق</button>';
+  div.innerHTML = '<h3 style="margin:0 0 10px;font-family:Changa;">اختبار QR</h3><div id="test-qr"></div><p id="test-url" style="font-size:10px;color:#666;word-break:break-all;"></p><br><button onclick="this.parentElement.remove()" style="padding:8px 16px;font-family:Changa;cursor:pointer;">إغلاق</button>';
   document.body.appendChild(div);
   try{
+    const testUrl = getBaseUrl() + 'viewer.html?a=4&s=ABC123&sec=school-info';
+    document.getElementById('test-url').textContent = testUrl;
     new QRCode(document.getElementById('test-qr'), {
-      text: 'viewer.html?a=4&s=ABC123&sec=school-info',
+      text: testUrl,
       width: 150, height: 150, colorDark: "#000", colorLight: "#fff"
     });
   }catch(e){ alert('خطأ: ' + e.message); }

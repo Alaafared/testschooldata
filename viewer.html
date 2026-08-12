@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>عرض بيانات المدرسة | QR Scanner</title>
+<link href="https://fonts.googleapis.com/css2?family=Changa:wght@500;600;700;800&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<style>
+  :root{
+    --bg:#0f2b38; --bg-deep:#0a1f29;
+    --paper:#f6f1e4; --ink:#152229; --ink-soft:#3d5560;
+    --accent:#c9791f; --cyan:#7fc4d6; --ok:#4d8b5f; --danger:#b94a48;
+    --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--paper);
+    font-family:'Tajawal', sans-serif; min-height:100vh;
+    background: radial-gradient(ellipse at top left, #163b4a, var(--bg) 55%);
+  }
+  .container{max-width:900px; margin:0 auto; padding:20px;}
+  .header{
+    text-align:center; padding:30px 20px; border-bottom:2px solid var(--accent);
+    margin-bottom:20px;
+  }
+  .header h1{font-family:'Changa'; font-size:28px; margin:0; color:#fdf9ef;}
+  .header p{color:var(--cyan); margin:8px 0 0; font-size:14px;}
+
+  .scan-box{
+    background:rgba(127,196,214,0.08); border:1.5px solid var(--cyan-soft);
+    border-radius:var(--radius); padding:30px; text-align:center; margin-bottom:20px;
+  }
+  .scan-box input{
+    width:100%; max-width:400px; padding:14px; font-size:16px;
+    border:1.5px solid var(--cyan-soft); border-radius:var(--radius);
+    background:rgba(255,255,255,0.05); color:#fff; font-family:'Tajawal';
+    text-align:center; letter-spacing:1px;
+  }
+  .scan-box input:focus{outline:2px solid var(--accent); border-color:var(--accent);}
+  .scan-box button{
+    margin-top:12px; padding:12px 30px; font-family:'Changa'; font-weight:700;
+    font-size:16px; background:var(--accent); color:#1a1005; border:none;
+    border-radius:var(--radius); cursor:pointer;
+  }
+  .scan-box button:hover{opacity:.9;}
+
+  .data-card{
+    background:var(--paper); color:var(--ink); border-radius:var(--radius);
+    box-shadow:0 10px 30px rgba(0,0,0,.3); margin-bottom:16px; overflow:hidden;
+  }
+  .data-card h3{
+    font-family:'Changa'; margin:0; padding:14px 18px;
+    background:var(--ink); color:var(--paper); font-size:16px;
+  }
+  .data-card .content{padding:16px 18px;}
+  .data-row{
+    display:flex; justify-content:space-between; padding:10px 0;
+    border-bottom:1px solid rgba(20,40,48,0.08);
+  }
+  .data-row:last-child{border-bottom:none;}
+  .data-label{color:var(--ink-soft); font-size:13px; font-family:'Changa';}
+  .data-value{font-weight:700; font-size:15px;}
+
+  .table-wrap{overflow-x:auto;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{background:var(--ink); color:var(--paper); padding:10px; font-family:'Changa'; text-align:center;}
+  td{border-bottom:1px solid rgba(20,40,48,0.08); padding:8px; text-align:center;}
+  tr:nth-child(even){background:rgba(20,40,48,0.03);}
+
+  .loading{text-align:center; padding:40px; color:var(--cyan); font-family:'Changa';}
+  .error{text-align:center; padding:40px; color:var(--danger); font-family:'Changa';}
+
+  .school-header{
+    background:linear-gradient(180deg, rgba(201,121,31,0.15), transparent);
+    border:1.5px solid var(--accent); border-radius:var(--radius);
+    padding:20px; margin-bottom:20px; text-align:center;
+  }
+  .school-header h2{font-family:'Changa'; margin:0 0 6px; color:#fdf9ef; font-size:22px;}
+  .school-header p{margin:0; color:var(--cyan); font-size:13px;}
+
+  footer{text-align:center; padding:20px; color:#7ea3af; font-size:12px;}
+
+  @media (max-width:600px){
+    .header h1{font-size:20px;}
+    .data-row{flex-direction:column; gap:4px;}
+  }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>📱 عارض بيانات QR</h1>
+    <p>امسح QR Code أو أدخل الرابط لعرض بيانات المدرسة</p>
+  </div>
+
+  <div class="scan-box">
+    <input type="text" id="urlInput" placeholder="مثال: viewer.html?a=4&s=ABC123&sec=school-info" autofocus>
+    <br>
+    <button onclick="loadFromInput()">🔍 عرض البيانات</button>
+  </div>
+
+  <div id="resultArea"></div>
+</div>
+
+<footer>نظام بيانات المدارس | التعليم الصناعي</footer>
+
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyA0q7mWrvatHLdcfbiBiMAaqcRlQDZK2EQ",
+    authDomain: "school-data-system-5ad91.firebaseapp.com",
+    projectId: "school-data-system-5ad91",
+    storageBucket: "school-data-system-5ad91.appspot.com",
+    messagingSenderId: "425180557725",
+    appId: "1:425180557725:web:12796dd76b2680be8cbf74",
+    measurementId: "G-Y0315YW5LY"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const ADMINISTRATIONS = [
+  "شمال", "جنوب", "فايد", "القنطرة غرب", "القنطرة شرق",
+  "ابو صوير", "القصاصين", "التل الكبير"
+];
+
+const SECTION_LABELS = {
+  'school-info': 'بيانات المدرسة',
+  'specialist-teachers': 'معلمي التخصصات',
+  'cultural-teachers': 'معلمي الثقافي',
+  'students': 'بيانات الطلاب',
+  'staff': 'بيانات العاملين',
+  'buildings': 'بيانات المباني',
+  'teacher-budget': 'ميزانية المعلمين'
+};
+
+function parseURL(url){
+  if(!url) return null;
+  const qIndex = url.indexOf('?');
+  const query = qIndex >= 0 ? url.substring(qIndex + 1) : url;
+  const params = new URLSearchParams(query);
+  const adminIdx = parseInt(params.get('a'));
+  const schoolHash = params.get('s');
+  const sectionKey = params.get('sec');
+  if(isNaN(adminIdx) || !schoolHash || !sectionKey) return null;
+  return { adminIdx, schoolHash, sectionKey };
+}
+
+async function loadFromInput(){
+  const input = document.getElementById('urlInput').value.trim();
+  const result = document.getElementById('resultArea');
+
+  if(!input){ result.innerHTML = '<div class="error">⚠️ أدخل الرابط أولاً</div>'; return; }
+
+  const parsed = parseURL(input);
+  if(!parsed){ result.innerHTML = '<div class="error">⚠️ رابط غير صالح</div>'; return; }
+
+  const adminName = ADMINISTRATIONS[parsed.adminIdx];
+  if(!adminName){ result.innerHTML = '<div class="error">⚠️ رقم الإدارة غير صالح</div>'; return; }
+
+  result.innerHTML = '<div class="loading">⏳ جاري البحث...</div>';
+
+  try{
+    const schoolsSnap = await db.collection('schools').doc(adminName).collection('schools').get();
+    let matchedSchool = null, matchedData = null;
+
+    schoolsSnap.forEach(doc => {
+      const data = doc.data();
+      if(!data || !data.school) return;
+      let schoolHash = 0;
+      const name = data.school;
+      for(let i = 0; i < name.length; i++){
+        schoolHash = ((schoolHash << 5) - schoolHash) + name.charCodeAt(i);
+        schoolHash = schoolHash & schoolHash;
+      }
+      const calculatedHash = Math.abs(schoolHash).toString(36).substring(0, 6).toUpperCase();
+      if(calculatedHash === parsed.schoolHash){
+        matchedSchool = data.school;
+        matchedData = data.data || {};
+      }
+    });
+
+    if(!matchedSchool){ result.innerHTML = '<div class="error">⚠️ لم يتم العثور على المدرسة</div>'; return; }
+
+    displayData(matchedSchool, adminName, parsed.sectionKey, matchedData);
+  }catch(e){
+    result.innerHTML = '<div class="error">⚠️ خطأ: ' + e.message + '</div>';
+  }
+}
+
+function displayData(schoolName, adminName, sectionKey, data){
+  const result = document.getElementById('resultArea');
+  const sectionLabel = SECTION_LABELS[sectionKey] || sectionKey;
+  const sectionData = data[sectionKey];
+
+  let html = `<div class="school-header">
+    <h2>🏫 ${schoolName}</h2>
+    <p>الإدارة: ${adminName} | القسم: ${sectionLabel}</p>
+  </div>`;
+
+  if(!sectionData){ html += `<div class="data-card"><h3>⚠️ لا توجد بيانات</h3><div class="content"><p>لا توجد بيانات لهذا القسم</p></div></div>`; result.innerHTML = html; return; }
+
+  if(sectionKey === 'school-info'){ html += renderInfo(sectionData); }
+  else if(sectionKey === 'buildings'){ html += renderBuildings(sectionData); }
+  else if(Array.isArray(sectionData)){ html += renderTable(sectionLabel, sectionData); }
+  else { html += `<div class="data-card"><h3>📋 ${sectionLabel}</h3><div class="content"><pre style="text-align:right;direction:rtl;font-family:Tajawal;white-space:pre-wrap;font-size:12px;">${JSON.stringify(sectionData, null, 2)}</pre></div></div>`; }
+
+  result.innerHTML = html;
+}
+
+function renderInfo(data){
+  const fields = [['schoolName','اسم المدرسة'],['quality','النوعية'],['admin','الإدارة'],['address','العنوان'],['phone','التليفون'],['manager','مسئول الإدارة']];
+  let rows = '';
+  fields.forEach(([k,label]) => { rows += `<div class="data-row"><span class="data-label">${label}</span><span class="data-value">${data[k] || '—'}</span></div>`; });
+  return `<div class="data-card"><h3>📋 بيانات المدرسة</h3><div class="content">${rows}</div></div>`;
+}
+
+function renderBuildings(rows){
+  if(!rows || !rows.length){ return `<div class="data-card"><h3>🏛️ المباني</h3><div class="content"><p>لا توجد بيانات</p></div></div>`; }
+  let rowsHTML = '';
+  rows.forEach((row, i) => { rowsHTML += `<div class="data-row"><span class="data-label">${i+1}. ${row.name || '—'}</span><span class="data-value">${row.conditionStatus || '—'}</span></div>`; });
+  return `<div class="data-card"><h3>🏛️ المباني (${rows.length})</h3><div class="content">${rowsHTML}</div></div>`;
+}
+
+function renderTable(title, rows){
+  if(!rows || !rows.length){ return `<div class="data-card"><h3>📋 ${title}</h3><div class="content"><p>لا توجد صفوف</p></div></div>`; }
+  const cols = Object.keys(rows[0]).filter(k => rows[0][k] !== undefined && rows[0][k] !== '');
+  const headerHTML = cols.map(c => `<th>${c}</th>`).join('');
+  const rowsHTML = rows.map(row => { const cells = cols.map(c => `<td>${row[c] !== undefined ? row[c] : '—'}</td>`).join(''); return `<tr>${cells}</tr>`; }).join('');
+  return `<div class="data-card"><h3>📋 ${title} (${rows.length} صف)</h3><div class="content table-wrap"><table><thead><tr>${headerHTML}</tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
+}
+
+window.addEventListener('load', function(){
+  const params = new URLSearchParams(window.location.search);
+  const a = params.get('a'), s = params.get('s'), sec = params.get('sec');
+  if(a && s && sec){
+    document.getElementById('urlInput').value = 'viewer.html?a=' + a + '&s=' + s + '&sec=' + sec;
+    loadFromInput();
+  }
+});
+
+document.getElementById('urlInput').addEventListener('keypress', e => { if(e.key === 'Enter') loadFromInput(); });
+</script>
+
+</body>
+</html>

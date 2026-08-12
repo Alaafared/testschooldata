@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام بيانات المدارس | التعليم الصناعي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Changa:wght@500;600;700;800&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+  :root{
+    --bg:#0f2b38; --bg-deep:#0a1f29;
+    --grid-line: rgba(148,197,214,0.08); --grid-line-strong: rgba(148,197,214,0.14);
+    --paper:#f6f1e4; --paper-line: rgba(20,40,48,0.10);
+    --ink:#152229; --ink-soft:#3d5560;
+    --accent:#c9791f; --accent-deep:#a45f13;
+    --cyan:#7fc4d6; --cyan-soft:#4d8ea1;
+    --ok:#4d8b5f; --danger:#b94a48;
+    --line:#1f4a5c; --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0/40px 40px,
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0/40px 40px,
+      radial-gradient(ellipse at top left, #163b4a, var(--bg) 55%);
+    background-color:var(--bg); color:var(--paper);
+    font-family:'Tajawal', sans-serif; min-height:100vh;
+  }
+  ::selection{background:var(--accent); color:#0a1f29;}
+
+  /* Login Screen */
+  #loginScreen{
+    position:fixed; inset:0; z-index:9999;
+    display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at center, #163b4a, #0a1f29);
+  }
+  .login-box{
+    width:100%; max-width:420px; padding:40px;
+    border:1.5px solid var(--cyan-soft); border-radius:var(--radius);
+    background:linear-gradient(180deg, rgba(127,196,214,0.08), transparent);
+    position:relative;
+  }
+  .login-box::before{
+    content:""; position:absolute; inset:8px;
+    border:1px dashed rgba(127,196,214,0.35); pointer-events:none;
+  }
+  .login-box h2{
+    font-family:'Changa',sans-serif; font-size:24px; margin:0 0 24px;
+    color:#fdf9ef; text-align:center;
+  }
+  .login-field{margin-bottom:16px;}
+  .login-field label{
+    display:block; font-family:'Changa',sans-serif; font-size:12px;
+    color:var(--cyan); margin-bottom:6px; letter-spacing:1px;
+  }
+  .login-field input{
+    width:100%; padding:12px 14px; border:1.5px solid var(--line);
+    border-radius:var(--radius); background:rgba(255,255,255,0.05);
+    color:#fff; font-family:'Tajawal'; font-size:15px;
+  }
+  .login-field input:focus{outline:2px solid var(--accent); border-color:var(--accent);}
+  .login-btn{
+    width:100%; padding:14px; margin-top:8px;
+    font-family:'Changa',sans-serif; font-weight:700; font-size:16px;
+    background:var(--accent); color:#1a1005; border:none;
+    border-radius:var(--radius); cursor:pointer;
+  }
+  .login-btn:hover{opacity:.9;}
+  .login-error{
+    color:var(--danger); font-size:13px; text-align:center;
+    margin-top:10px; min-height:20px;
+  }
+  .login-hint{
+    text-align:center; font-size:12px; color:var(--cyan-soft);
+    margin-top:16px; line-height:1.8;
+  }
+
+  /* Selectors */
+  .selector-screen{
+    display:none; position:fixed; inset:0; z-index:9998;
+    background:radial-gradient(ellipse at center, #163b4a, #0a1f29);
+    align-items:center; justify-content:center; flex-direction:column;
+    padding:20px; overflow:auto;
+  }
+  .selector-box{
+    width:100%; max-width:900px;
+    border:1.5px solid var(--cyan-soft); border-radius:var(--radius);
+    background:linear-gradient(180deg, rgba(127,196,214,0.08), transparent);
+    padding:30px;
+  }
+  .selector-box h2{
+    font-family:'Changa',sans-serif; font-size:22px; margin:0 0 8px;
+    color:#fdf9ef; text-align:center;
+  }
+  .selector-sub{
+    text-align:center; color:var(--cyan-soft); font-size:14px; margin-bottom:20px;
+  }
+  .selector-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));
+    gap:12px;
+  }
+  .selector-card{
+    border:1.5px solid var(--line); border-radius:var(--radius);
+    padding:20px; text-align:center; cursor:pointer;
+    background:rgba(255,255,255,0.03);
+    transition:.15s;
+  }
+  .selector-card:hover{border-color:var(--accent); background:rgba(201,121,31,0.1); transform:translateY(-3px); box-shadow:0 10px 22px rgba(0,0,0,.28);}
+  .selector-card h4{margin:0 0 6px; font-family:'Changa'; font-size:16px; color:#fdf9ef;}
+  .selector-card p{margin:0; font-size:12px; color:var(--cyan-soft);}
+  .back-btn{
+    background:transparent; border:1.5px solid var(--cyan-soft); color:var(--cyan);
+    padding:8px 18px; font-family:'Changa'; cursor:pointer; border-radius:var(--radius);
+    margin-top:20px; font-size:13px;
+  }
+
+  /* User Management Panel */
+  #userPanelBtn{
+    position:fixed; top:20px; left:20px; z-index:100;
+    background:var(--accent); color:#1a1005; border:none;
+    padding:8px 16px; font-family:'Changa'; font-weight:700;
+    border-radius:var(--radius); cursor:pointer; display:none;
+  }
+  #userPanel{
+    display:none; position:fixed; inset:0; z-index:9997;
+    background:rgba(10,31,41,0.95); overflow:auto;
+  }
+  .panel-inner{max-width:900px; margin:40px auto; padding:20px;}
+  .panel-inner h2{font-family:'Changa'; color:#fdf9ef; margin:0 0 20px;}
+  .close-panel{
+    float:left; background:var(--danger); color:#fff; border:none;
+    padding:6px 14px; font-family:'Changa'; cursor:pointer; border-radius:var(--radius);
+  }
+  .user-table{width:100%; border-collapse:collapse; font-size:13px; margin-top:16px;}
+  .user-table th{background:var(--ink); color:var(--paper); padding:10px; font-family:'Changa';}
+  .user-table td{border-bottom:1px solid var(--line); padding:10px; color:#c7dbe2;}
+  .user-form{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+    gap:12px; margin-bottom:20px;
+  }
+  .user-form input, .user-form select{
+    padding:10px; border:1.5px solid var(--line); background:rgba(255,255,255,0.05);
+    color:#fff; font-family:'Tajawal'; border-radius:var(--radius);
+  }
+  .user-form select option{background:var(--bg-deep);}
+
+  /* Header */
+  .stamp-wrap{padding:28px 20px 10px;}
+  .title-block{
+    max-width:1180px; margin:0 auto;
+    border:1.5px solid var(--cyan-soft); border-radius:var(--radius);
+    background:linear-gradient(180deg, rgba(127,196,214,0.06), transparent);
+    position:relative; overflow:hidden;
+  }
+  .title-block::before{
+    content:""; position:absolute; inset:6px;
+    border:1px dashed rgba(127,196,214,0.35); pointer-events:none;
+  }
+  .tb-grid{display:grid; grid-template-columns: 1.6fr 1fr 1fr; gap:0;}
+  .tb-main{padding:22px 26px; border-left:1.5px solid var(--cyan-soft);}
+  .tb-eyebrow{
+    font-family:'Changa', sans-serif; font-size:12px; letter-spacing:4px;
+    color:var(--cyan); text-transform:uppercase; margin:0 0 6px;
+  }
+  .tb-title{
+    font-family:'Changa', sans-serif; font-weight:800;
+    font-size:clamp(22px,3vw,32px); margin:0 0 8px; color:#fdf9ef; line-height:1.3;
+  }
+  .tb-sub{margin:0; color:#c7dbe2; font-size:14.5px;}
+  .tb-side{padding:16px 22px; border-left:1.5px solid rgba(127,196,214,0.3);}
+  .tb-side:last-child{border-left:none;}
+  .tb-field{margin-bottom:12px;}
+  .tb-field:last-child{margin-bottom:0;}
+  .tb-label{font-size:10.5px; letter-spacing:2px; color:var(--cyan-soft); text-transform:uppercase; font-family:'Changa',sans-serif;}
+  .tb-value{font-size:14px; color:#f2ede0; font-weight:700; margin-top:2px;}
+  .logout-btn{
+    background:transparent; border:1.5px solid var(--danger); color:var(--danger);
+    padding:6px 14px; font-family:'Changa'; cursor:pointer; border-radius:var(--radius);
+    font-size:12px; margin-top:8px;
+  }
+
+  /* Nav */
+  nav{
+    max-width:1180px; margin:18px auto 0; padding:0 20px;
+    display:flex; gap:8px; flex-wrap:wrap;
+  }
+  .tab-btn{
+    font-family:'Changa', sans-serif; background:transparent;
+    border:1.5px solid var(--line); color:#a9c7d1;
+    padding:10px 18px; border-radius:var(--radius); cursor:pointer;
+    font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px;
+    transition:.15s;
+  }
+  .tab-btn .no{
+    font-size:11px; color:var(--cyan-soft); border:1px solid var(--cyan-soft);
+    border-radius:50%; width:18px; height:18px; display:flex; align-items:center; justify-content:center;
+  }
+  .tab-btn:hover{border-color:var(--cyan); color:#fff;}
+  .tab-btn.active{background:var(--accent); border-color:var(--accent); color:#1a1005; box-shadow:0 5px 16px rgba(201,121,31,.4); transform:translateY(-1px);}
+  .tab-btn.active .no{border-color:#1a1005; color:#1a1005;}
+
+  /* Sheet */
+  main{max-width:1180px; margin:22px auto 60px; padding:0 20px;}
+  .sheet{
+    background:
+      linear-gradient(var(--paper-line) 1px, transparent 1px) 0 0/100% 34px,
+      var(--paper);
+    color:var(--ink); border-radius:var(--radius);
+    box-shadow:0 20px 50px rgba(0,0,0,.35); display:none; position:relative;
+  }
+  .sheet.active{display:block;}
+  .sheet-head{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding:20px 26px 14px; border-bottom:2px solid var(--ink);
+    flex-wrap:wrap; gap:10px;
+  }
+  .sheet-head h2{font-family:'Changa',sans-serif; margin:0; font-size:21px; color:var(--ink);}
+  .sheet-head p{margin:2px 0 0; color:var(--ink-soft); font-size:13px;}
+  .sheet-tools{display:flex; gap:8px; align-items:center;}
+  .save-state{font-size:12px; color:var(--ink-soft); font-family:'Changa',sans-serif;}
+  .save-state.saved{color:var(--ok);}
+  .btn{
+    font-family:'Changa',sans-serif; font-weight:600; font-size:13px;
+    border:1.5px solid var(--ink); background:var(--ink); color:var(--paper);
+    padding:8px 16px; border-radius:var(--radius); cursor:pointer;
+  }
+  .btn.ghost{background:transparent; color:var(--ink);}
+  .btn:hover{opacity:.85;}
+  .sheet-body{padding:20px 26px 30px;}
+
+  .info-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px 22px;}
+  .info-item label{display:block; font-size:12px; color:var(--ink-soft); margin-bottom:5px; font-family:'Changa',sans-serif; letter-spacing:.5px;}
+  .info-item input, .info-item select{
+    width:100%; padding:10px 12px; border:1.5px solid var(--ink-soft);
+    border-radius:var(--radius); background:#fff; color:var(--ink);
+    font-family:'Tajawal'; font-size:14.5px;
+  }
+  .info-item input:focus, .info-item select:focus{outline:2px solid var(--accent); border-color:var(--accent);}
+
+  .table-scroll{overflow-x:auto; border:1.5px solid var(--ink-soft); border-radius:var(--radius);}
+  table{border-collapse:collapse; width:100%; min-width:640px; font-size:13.5px;}
+  thead th{
+    background:var(--ink); color:var(--paper); font-family:'Changa',sans-serif;
+    font-weight:600; padding:10px 8px; text-align:center; position:sticky; top:0;
+    border-left:1px solid rgba(255,255,255,.15);
+  }
+  /* Sortable headers */
+  th.sortable{cursor:pointer; user-select:none; transition:.15s;}
+  th.sortable:hover{background:#2a4a5a;}
+  th.sortable::after{content:' ⇅'; opacity:0.5; font-size:11px; margin-right:4px;}
+  th.sortable.asc::after{content:' ↑'; opacity:1; color:var(--accent);}
+  th.sortable.desc::after{content:' ↓'; opacity:1; color:var(--accent);}
+
+  tbody td{
+    border-bottom:1px solid var(--paper-line); border-left:1px solid var(--paper-line);
+    padding:0; text-align:center; vertical-align:middle;
+  }
+  tbody tr:nth-child(even){background:rgba(20,40,48,0.03);}
+  tbody td input, tbody td select{
+    width:100%; border:none; background:transparent; padding:9px 8px;
+    text-align:center; font-family:'Tajawal'; font-size:13.5px; color:var(--ink);
+  }
+  tbody td input:focus, tbody td select:focus{outline:2px solid var(--accent); background:#fffdf5;}
+  td.idx{color:var(--ink-soft); font-weight:700; font-family:'Changa'; background:rgba(20,40,48,0.04);}
+  td.name-cell input{text-align:right; font-weight:600;}
+  td.total-cell input{font-weight:800; color:var(--accent-deep); background:rgba(201,121,31,0.08);}
+  tfoot td{
+    background:#eadfc4; font-family:'Changa'; font-weight:700;
+    padding:10px 8px; border-top:2px solid var(--ink); color:var(--ink);
+  }
+
+  footer{max-width:1180px; margin:0 auto 40px; padding:0 20px; color:#7ea3af; font-size:12.5px; text-align:center;}
+
+  .sync-indicator{
+    position:fixed; bottom:20px; left:20px; z-index:100;
+    background:rgba(15,43,56,0.9); border:1px solid var(--cyan-soft);
+    padding:8px 14px; border-radius:var(--radius); font-size:12px;
+    color:var(--cyan); font-family:'Changa'; display:none;
+  }
+  .breadcrumb{
+    max-width:1180px; margin:0 auto; padding:0 20px 10px;
+    font-size:13px; color:var(--cyan-soft);
+  }
+  .breadcrumb span{color:var(--accent); font-weight:700;}
+
+  /* Delete button */
+  .delete-btn{
+    background:transparent; border:1px solid var(--danger); color:var(--danger);
+    padding:2px 8px; font-family:'Changa'; cursor:pointer; border-radius:var(--radius);
+    font-size:11px; transition:.15s; min-width:50px;
+  }
+  .delete-btn:hover{background:var(--danger); color:#fff;}
+  td.action-cell{padding:4px;}
+
+  /* Buildings specific styles */
+  .status-select {
+    width:100%; padding:8px 6px; border:1.5px solid var(--paper-line); border-radius:4px;
+    font-family:'Tajawal'; font-size:12.5px; color:var(--ink); text-align:center;
+    background:#fff; cursor:pointer; transition:.15s; font-weight:500;
+  }
+  .status-select:focus {
+    outline:2px solid var(--accent); background:#fffdf5;
+  }
+  .status-select:hover{ border-color:var(--cyan-soft); }
+  .status-select.st-good{ background:#e7f4ea; border-color:#4d8b5f; color:#2c5c3b; font-weight:700; }
+  .status-select.st-bad{ background:#fbebea; border-color:#b94a48; color:#8a2f2d; font-weight:700; }
+  .status-select.st-none{ background:#eef0ef; border-color:#98a2a2; color:#5a6363; }
+  .status-select.st-neutral{ background:#fdf3e2; border-color:#c9791f; color:#8a5313; font-weight:600; }
+
+  .legend-row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+  .legend-chip{
+    font-size:11.5px; font-family:'Changa',sans-serif; font-weight:700;
+    padding:5px 12px; border-radius:20px; border:1.5px solid transparent;
+  }
+  .legend-chip.st-good{ background:#e7f4ea; border-color:#4d8b5f; color:#2c5c3b; }
+  .legend-chip.st-bad{ background:#fbebea; border-color:#b94a48; color:#8a2f2d; }
+  .legend-chip.st-none{ background:#eef0ef; border-color:#98a2a2; color:#5a6363; }
+
+  tfoot td.totals-label{ text-align:right; padding-right:14px; }
+  tr.totals-good td{ background:#e7f4ea; color:#2c5c3b; border-top:1.5px solid #bcdcc4; }
+  tr.totals-bad td{ background:#fbebea; color:#8a2f2d; border-top:1.5px solid #edc3c1; }
+  tr.totals-good td.totals-label, tr.totals-bad td.totals-label{ font-size:13px; }
+  .add-row-btn {
+    margin:10px 0; padding:8px 16px;
+    background:var(--accent); color:#1a1005; border:none;
+    border-radius:var(--radius); font-family:'Changa'; font-weight:700;
+    cursor:pointer; font-size:13px; transition:.15s;
+  }
+  .add-row-btn:hover{ transform:translateY(-1px); box-shadow:0 5px 14px rgba(201,121,31,.4); }
+  .add-row-btn:hover{opacity:.9;}
+
+  /* Export / Print toolbar buttons */
+  .tool-btn{
+    font-family:'Changa',sans-serif; font-weight:600; font-size:12.5px;
+    border:1.5px solid var(--ink-soft); background:#fff; color:var(--ink);
+    padding:6px 12px; border-radius:var(--radius); cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px; transition:.15s;
+  }
+  .tool-btn:hover{border-color:var(--accent); color:var(--accent-deep); transform:translateY(-1px); box-shadow:0 3px 10px rgba(0,0,0,.12);}
+  .global-toolbar{
+    display:flex; gap:10px; align-items:center; justify-content:flex-start;
+    max-width:1180px; margin:0 auto 8px; padding:0 20px; flex-wrap:wrap;
+  }
+  .global-toolbar .tool-btn{
+    border-color:var(--cyan-soft); background:transparent; color:#d7ecf2;
+  }
+  .global-toolbar .tool-btn:hover{border-color:var(--cyan); color:#fff;}
+
+  
+  /* QR Code */
+  .qr-wrap{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:20px 10px 14px; margin-top:16px;
+    border-top:2px dashed var(--paper-line); gap:10px;
+  }
+  .qr-wrap canvas, .qr-wrap img{
+    display:block; margin:0 auto;
+    border:4px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.15);
+  }
+  .qr-wrap .qr-label{
+    font-family:'Changa',sans-serif; font-size:12px; color:var(--ink-soft);
+    text-align:center; direction:rtl;
+  }
+  .qr-wrap .qr-hint{
+    font-family:'Tajawal',sans-serif; font-size:11px; color:#888;
+    text-align:center; margin-top:4px;
+  }
+
+@media print{
+    body{background:#fff !important; color:#000;}
+    #loginScreen, #adminSelector, #schoolSelector, #userPanelBtn, #userPanel,
+    .stamp-wrap .tb-eyebrow, nav#tabs, .logout-btn, .sync-indicator, footer,
+    .add-row-btn, .sheet-tools, .global-toolbar, .breadcrumb{
+      display:none !important;
+    }
+    main{margin:0; padding:0; max-width:100%;}
+    .sheet{
+      display:none; box-shadow:none !important; border:1px solid #000; border-radius:0;
+      background:#fff !important;
+    }
+    .sheet.active{display:block !important;}
+    body.print-all-mode .sheet{display:block !important; page-break-after:always;}
+    table{width:100%;}
+    select, input{border:none !important; background:transparent !important; -webkit-print-color-adjust:exact;}
+    .delete-btn{display:none !important;}
+    th.sortable::after{content:'' !important;}
+  }
+
+  @media (max-width:760px){
+    .tb-grid{grid-template-columns:1fr;}
+    .tb-side{border-left:none; border-top:1.5px solid rgba(127,196,214,0.3);}
+    .info-grid{grid-template-columns:1fr;}
+    .selector-grid{grid-template-columns:1fr;}
+  }
+</style>
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<base target="_blank">
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h2>نظام بيانات المدارس</h2>
+    <div class="login-field">
+      <label>البريد الإلكتروني</label>
+      <input type="email" id="loginEmail" placeholder="admin@example.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>كلمة المرور</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" onclick="doLogin()">تسجيل الدخول</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- Administration Selector (Super Admins only) -->
+<div id="adminSelector" class="selector-screen">
+  <div class="selector-box">
+    <h2>اختر الإدارة التعليمية</h2>
+    <p class="selector-sub">المسئول العام — يمكنك الوصول لجميع الإدارات</p>
+    <div class="selector-grid" id="adminGrid"></div>
+  </div>
+</div>
+
+<!-- School Selector (All users) -->
+<div id="schoolSelector" class="selector-screen">
+  <div class="selector-box">
+    <h2 id="schoolSelectorTitle">اختر المدرسة</h2>
+    <p class="selector-sub" id="schoolSelectorSub">—</p>
+    <div class="selector-grid" id="schoolGrid"></div>
+    <button class="back-btn" id="backBtn" onclick="goBack()" style="display:none;">← رجوع للإدارات</button>
+  </div>
+</div>
+
+<!-- User Management Panel -->
+<button id="userPanelBtn" onclick="toggleUserPanel()">إدارة المستخدمين</button>
+<div id="userPanel">
+  <div class="panel-inner">
+    <button class="close-panel" onclick="toggleUserPanel()">إغلاق</button>
+    <h2>إدارة المستخدمين والصلاحيات</h2>
+    <div class="user-form">
+      <input type="text" id="newUserName" placeholder="الاسم الكامل">
+      <input type="email" id="newUserEmail" placeholder="البريد الإلكتروني">
+      <input type="password" id="newUserPass" placeholder="كلمة المرور">
+      <select id="newUserRole">
+        <option value="admin">مسئول محلي (إدارة + مدرسة)</option>
+        <option value="super_admin">مسئول عام (كل الإدارات)</option>
+      </select>
+      <select id="newUserAdmin">
+        <option value="">-- اختر الإدارة --</option>
+      </select>
+      <button class="btn" onclick="addUser()" style="background:var(--accent);color:#1a1005;border-color:var(--accent);">إضافة مستخدم</button>
+    </div>
+    <table class="user-table">
+      <thead><tr><th>الاسم</th><th>البريد</th><th>الصلاحية</th><th>الإدارة</th><th>إجراء</th></tr></thead>
+      <tbody id="usersTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="mainApp" style="display:none;">
+  <div class="stamp-wrap">
+    <div class="title-block">
+      <div class="tb-grid">
+        <div class="tb-main">
+          <p class="tb-eyebrow">لوحة رقم 00 — التعليم الصناعي</p>
+          <h1 class="tb-title" id="schoolNameDisplay">مدرسة الشهيد المقدم محمد عبدالاله صالح</h1>
+          <p class="tb-sub" id="schoolAddrDisplay">—</p>
+        </div>
+        <div class="tb-side">
+          <div class="tb-field"><div class="tb-label">النوعية</div><div class="tb-value" id="headerQuality">تعليم صناعي</div></div>
+          <div class="tb-field"><div class="tb-label">رقم التليفون</div><div class="tb-value" id="schoolPhoneDisplay">—</div></div>
+        </div>
+        <div class="tb-side">
+          <div class="tb-field"><div class="tb-label">مسئول الإدارة</div><div class="tb-value" id="schoolManagerDisplay">—</div></div>
+          <div class="tb-field"><div class="tb-label">آخر تحديث</div><div class="tb-value" id="lastUpdate">لم يُحفظ بعد</div></div>
+          <div class="tb-field"><div class="tb-label">المستخدم</div><div class="tb-value" id="currentUserDisplay">—</div></div>
+          <button class="logout-btn" onclick="doLogout()">تسجيل الخروج</button>
+        </div>
+      </div>
+    </div>
+    <div class="breadcrumb" id="breadcrumb">الإدارة: <span id="bcAdmin">—</span> &nbsp;|&nbsp; المدرسة: <span id="bcSchool">—</span></div>
+    <div class="global-toolbar">
+      <button class="tool-btn" onclick="printAll()">🖨️ طباعة كل الصفحات</button>
+      <button class="tool-btn" onclick="exportAllExcel()">📊 تصدير الكل إلى Excel</button>
+      <button class="tool-btn" onclick="refreshActiveQR()">🔳 تحديث QR</button>
+      <button class="tool-btn" onclick="testQR()">🧪 اختبار QR</button>
+    </div>
+    <nav id="tabs"></nav>
+  </div>
+
+  <main id="sheets"></main>
+
+  <footer>
+    نظام بيانات مدرسي متصل — التعديلات تُحفظ فوراً في قاعدة البيانات
+  </footer>
+</div>
+
+<div class="sync-indicator" id="syncIndicator">جاري المزامنة...</div>
+
+<script>
+/* ===================== FIREBASE CONFIG ===================== */
+const firebaseConfig = {
+    apiKey: "AIzaSyA0q7mWrvatHLdcfbiBiMAaqcRlQDZK2EQ",
+    authDomain: "school-data-system-5ad91.firebaseapp.com",
+    projectId: "school-data-system-5ad91",
+    storageBucket: "school-data-system-5ad91.appspot.com",
+    messagingSenderId: "425180557725",
+    appId: "1:425180557725:web:12796dd76b2680be8cbf74",
+    measurementId: "G-Y0315YW5LY"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+/* ===================== DATA & CONFIG ===================== */
+const ADMINISTRATIONS = [
+  "شمال",
+  "جنوب",
+  "فايد",
+  "القنطرة غرب",
+  "القنطرة شرق",
+  "ابو صوير",
+  "القصاصين",
+  "التل الكبير"
+];
+
+const SCHOOLS = {
+  "شمال": [
+    "تكنولوجيا المعلومات المتقدمه ص ع بنين",
+    "ابراهيم أحمد عثمان ص ع بنين",
+    "المعدات الثقيله ص ع بنين",
+    "الفنية الكهربيه الصناعيه بنات",
+    "الفنية الزخرفيه الصناعيه بنات",
+    "الاسماعيلية المعماريه ص ع بنين",
+    "السلام الزخرفيه الصناعيه العسكريه بنين",
+    "الثانوية للشئون الفندقية والخدمات السياحية ع مشتركة",
+    "المدرسة الفنية التجارية المتقدمة",
+    "طلعت حرب التجارية ع بنين",
+    "أم المؤمنين التجارية بنات",
+    "التجارة القديمة التجارية بنات",
+    "الاسماعيليه الزراعيه العسكريه مشتركة 3 سنوات",
+    "الفنيه التجريبية لاستصلاح الاراضي الميكنه الزراعيه عسكريه بنين",
+    "السلام الزخرفيه الصناعيه بنين ملابس مزدوج",
+    "طلعت حرب تجاريه وجبات سريعه مزدوج",
+    "المعدات الثقيله ميكاترونكس مزدوج"
+  ],
+  "جنوب": [
+    "ابو عطوه الصناعيه بنات",
+    "ابو عطوه الصناعيه ملابس مزدوج",
+    "ابو عطوه التجاريه بنات"
+  ],
+  "فايد": [
+    "فايد الصناعيه العسكريه بنين",
+    "فايد الصناعيه العسكريه بنين مزدوج",
+    "الشهيد طيار محمد جمال عبد العزيز الصناعيه (فايد بنات)",
+    "الشهيد طيار محمود محمد فؤاد مرسي العسكريه التجارية المشتركه",
+    "فناره الزراعيه العسكريه المشتركه",
+    "سرابيوم الزراعيه العسكريه المشتركه"
+  ],
+  "القنطرة غرب": [
+    "القنطرة غرب الصناعيه بنين",
+    "القنطرة غرب الصناعيه بنات",
+    "القنطرة غرب التجاريه المشتركه",
+    "ابو خليفه التجاريه بنات",
+    "القنطرة غرب الزراعية المشتركة"
+  ],
+  "القنطرة شرق": [
+    "الشهيد مقدم محمد عبداللاه صالح علي السيد العسكريه ( القنطرة شرق الصناعيه المشتركه )",
+    "القنطرة شرق الصناعيه المزدوج",
+    "القنطرة شرق التجاريه المشتركة",
+    "القنطرة شرق الزراعيه المشتركة",
+    "الاحرار الزراعيه المشتركة"
+  ],
+  "ابو صوير": [
+    "الشهيد مجند محمد محمد علي ابراهيم العسكريه المشتركه ( ابو صوير الصناعيه المشتركة )",
+    "الشهيد صلاح ابراهيم النجار التجاريه المشتركة العسكريه (ابو صوير التجاريه المشتركة)",
+    "د صلاح عبدالغني الزراعيه العسكريه المشتركة بابو صوير"
+  ],
+  "القصاصين": [
+    "القصاصين الصناعيه العسكريه المشتركه",
+    "حسن غنيمي التجاريه المشتركة بالقصاصين",
+    "القصاصين الزراعيه المشتركة"
+  ],
+  "التل الكبير": [
+    "الشهيد احمد عادل وصفي العسكريه المشتركه بالتل الكبير",
+    "التل الكبير التجاريه المشتركة",
+    "التل الكبير الزراعيه المشتركه"
+  ]
+};
+
+const SPECIALTIES = [
+  "فني تركيبات كهربية",
+  "فني الات كهربية",
+  "فني تبريد وتكييف الهواء",
+  "فني سيارات",
+  "صيانة وتحكم صناعي",
+  "فني صيانة ميكانيكية",
+  "فني كاتب حسابات",
+  "فني تأمينات",
+  "فني مبيعات",
+  "فني إنتاج حيوان",
+  "فني محاصيل حقلي",
+  "فني حاصلات بستانية",
+  "فني تصنيع غذائي",
+  "فني أعمال بناء",
+  "فني أعمال السقالات",
+  "فني أعمال الخرسانة المسلحة",
+  "فني إصلاح وصيانة السيارات",
+  "فني أعمال النجارة",
+  "فني شبكات المياه",
+  "فني أجهزة إلكترونية",
+  "فني الملابس الجاهزة",
+  "فني الديكورات والإعلان",
+  "فني صناعات",
+  "فني معامل",
+  "فني سكرتير",
+  "فني توجيه إلكتروني",
+  "فني لحام وتشكيل المعادن",
+  "فني تشغيل المعادن",
+  "فني صحة (معامل)",
+  "فني حسابات",
+  "فني تبريد وتكييف",
+  "فني محركات بحرية",
+  "فني بناء السفن",
+  "فني بحري",
+  "فني ذكاء اصطناعي",
+  "فني شبكات حاسب",
+  "فني تكنولوجيا الحاسبات",
+  "فنى تشطبيات معمارية",
+  "فني اعمال مساحية",
+  "فني نجارة العمارة",
+  "فنى اعمال خرسانية",
+  "فني شبكات مياه واعمال صحية",
+  "فني تركيبات كهربيه وآلات كهربيه",
+  "فني تجميل",
+  "فني سباكة ونماذج المسبوكات",
+  "فني ديزل معدات ثقيلة",
+  "فني لوجستيات",
+  "فني زخرفه و اعلان",
+  "فني نجارة أثاث",
+  "فنی زخرفه وإعلان",
+  "فنى هندسة زراعية",
+  "فنی محاصيل زراعية",
+  "فنی خضر",
+  "فنى محاصيل الحقل",
+  "فنى دواجن وإنتاج حيواني",
+  "فني نحل",
+  "فنى هندسة وميكنة زراعية",
+  "فني طاهي"
+];
+const SUBJECTS = ["اللغة العربية","اللغة الانجليزية","الرياضيات","الكيمياء","الفيزياء","الدراسات الاجتماعية","الحاسب الالي","التربية الوطنية","التربية الرياضية بنين","التربية الرياضية بنات"];
+const BUDGET_ITEMS = [...SUBJECTS, ...SPECIALTIES];
+const JOBS = ["شئون عاملين","شئون طلبة","مكتب التشغيل","مكتب الأخصائي الاجتماعي","مكتب الأخصائي النفسي","سكرتير المدرسة","أخصائي مكتبة","أخصائي تكنولوجيا","أخصائي تربية فنية","أخصائي تربية رياضية","أخصائي تربية موسيقية","أخصائي تربية صحية","أخصائي إعلام","أخصائي تغذية","أخصائي أمن","أخصائي صيانة","أخصائي نظافة","عمال المدرسة","مكتب الصيانة","مكتب المخازن","مكتب المتابعة","وكيل المدرسة","وكيل المدرسة للشئون الفنية"];
+
+const DEFAULT_BUILDINGS = [
+  "مبنى الإدارة","مبنى الفصول الدراسية (أ)","مبنى الفصول الدراسية (ب)",
+  "مبنى الفصول الدراسية (ج)","معمل العلوم","معمل الحاسب الآلي",
+  "معمل اللغات","ورشة التدريب (كهرباء)","ورشة التدريب (ميكانيكا)",
+  "ورشة التدريب (نجارة)","ورشة التدريب (لحام)","ورشة التدريب (تبريد)",
+  "مكتبة المدرسة","قاعة الاجتماعات","ملعب كرة القدم",
+  "ملعب كرة السلة","ملعب كرة اليد","ملعب كرة الطائرة",
+  "مبنى المقصف","مبنى دورات المياه","مبنى الخدمات",
+  "سور المدرسة","بوابة المدرسة","مبنى المخازن","مبنى الصيانة"
+];
+
+const BUILDING_STATUS_OPTIONS = ["مقبول", "جيد", "ممتاز"];
+const EQUIPMENT_STATUS_OPTIONS = [
+  "متوفر بحالة جيدة",
+  "متوفر بحالة غير جيدة", 
+  "غير متوفر"
+];
+const SAFETY_RATING_OPTIONS = ["مقبول", "جيد", "ممتاز"];
+const QUALITY_OPTIONS = ["تعليم صناعي", "تعليم تجاري", "تعليم زراعي", "تعليم فندقي"];
+
+const SECTIONS = [
+  {key:'school-info', label:'بيانات المدرسة', type:'info'},
+  {key:'specialist-teachers', label:'معلمي التخصصات', type:'table',
+    title:'عدد معلمي التخصصات (عملي ونظري)',
+    cols:[
+      {k:'name', label:'التخصص', type:'text-list', list:SPECIALTIES, width:'22%', sortable:true},
+      {k:'practical', label:'عملي (دراسات تكميلية)', type:'number', sortable:true},
+      {k:'theory', label:'نظري (تربية + هندسة)', type:'number', sortable:true},
+      {k:'industrial', label:'تعليم صناعي', type:'number', sortable:true},
+      {k:'total', label:'إجمالي المعلمين', type:'sum', of:['practical','theory','industrial'], sortable:true},
+    ],
+    rows:23,
+    seed:[{name:"فني تركيبات كهربية", practical:6, theory:2, industrial:5}]
+  },
+  {key:'cultural-teachers', label:'معلمي الثقافي', type:'table',
+    title:'بيانات معلمي المواد الثقافية',
+    cols:[
+      {k:'subject', label:'المادة', type:'text-list', list:SUBJECTS, width:'26%', sortable:true},
+      {k:'count', label:'عدد المعلمين', type:'number', sortable:true},
+      {k:'notes', label:'ملاحظات', type:'text', width:'28%', sortable:true},
+    ],
+    rows:15,
+    seed:SUBJECTS.slice(0,8).map(s=>({subject:s}))
+  },
+  {key:'students', label:'بيانات الطلاب', type:'table',
+    title:'بيانات طلاب الصف الثاني والثالث حسب التخصص',
+    grouped:true, gradeLabels:['الثاني','الثالث'],
+    cols:[
+      {k:'name', label:'اسم التخصص', type:'text-list', list:SPECIALTIES, width:'18%', sortable:true},
+      {k:'grade', label:'الصف', type:'fixed', sortable:false},
+      {k:'regular', label:'منتظم', type:'number', sortable:true},
+      {k:'services', label:'خدمات', type:'number', sortable:true},
+      {k:'workers', label:'عمال', type:'number', sortable:true},
+      {k:'vocational', label:'مهني', type:'number', sortable:true},
+      {k:'inclusion', label:'دمج', type:'number', sortable:true},
+      {k:'total', label:'إجمالي', type:'sum', of:['regular','services','workers','vocational','inclusion'], sortable:true},
+      {k:'notes', label:'ملاحظات', type:'text', width:'16%', sortable:true},
+    ],
+    groups:16,
+    seedNames:["فني تركيبات كهربية","فني سيارات","فني تبريد وتكييف الهواء","فني صيانة وتحكم صناعي","فني صيانة ميكانيكية"]
+  },
+  {key:'staff', label:'بيانات العاملين والاداريين', type:'table',
+    title:'بيانات العاملين والاداريين بالمدرسة',
+    cols:[
+      {k:'job', label:'الوظيفة / المكتب', type:'fixed-list', list:JOBS, width:'26%', sortable:true},
+      {k:'count', label:'عدد العاملين', type:'number', sortable:true},
+      {k:'housing', label:'مسكن', type:'number', sortable:true},
+      {k:'delegated', label:'منتدب / تكليف', type:'number', sortable:true},
+      {k:'overtime', label:'عمل إضافي', type:'number', sortable:true},
+      {k:'notes', label:'ملاحظات', type:'text', width:'18%', sortable:true},
+    ],
+    rows:JOBS.length,
+    fixedList:JOBS
+  },
+  {key:'buildings', label:'بيانات المباني', type:'buildings',
+    title:'بيانات المباني والسلامة والصحة المهنية',
+    rows:35,
+    defaultBuildings: DEFAULT_BUILDINGS
+  },
+  {key:'teacher-budget', label:'ميزانية المعلمين', type:'budget',
+    title:'ميزانية المعلمين — تحليل العجز والزيادة بالحصص',
+    cols:[
+      {k:'subject', label:'المادة والتخصص', type:'text-list', list:BUDGET_ITEMS, width:'18%', sortable:true},
+      {k:'required', label:'اللازم<br>بالحصص', type:'number', sortable:true},
+      {k:'teacher_normal', label:'معلم<br>(18 حصة)', type:'number', sortable:true},
+      {k:'teacher_first', label:'معلم أول<br>(17 حصة)', type:'number', sortable:true},
+      {k:'teacher_first_a', label:'معلم أول أ<br>(16 حصة)', type:'number', sortable:true},
+      {k:'teacher_expert', label:'معلم خبير<br>(16 حصة)', type:'number', sortable:true},
+      {k:'teacher_senior', label:'معلم كبير<br>(14 حصة)', type:'number', sortable:true},
+      {k:'actual', label:'الموجود<br>بالحصص', type:'calc', sortable:true},
+      {k:'diff', label:'الفرق', type:'calc', sortable:true},
+      {k:'status', label:'الحالة', type:'status', sortable:true},
+      {k:'solution', label:'كيفية سد العجز', type:'text-list', list:["فوق النصاب","ندب إلى المدرسة","مدرس بالحصة","خدمة عامة","مشاركة مجتمعية"], width:'16%', sortable:true},
+    ],
+    rows:10
+  },
+];
+
+/* ===================== STATE ===================== */
+let currentUser = null;
+let userProfile = null;
+let currentAdministration = null;
+let currentSchool = null;
+let currentData = {};
+let listeners = [];
+let isSuperAdmin = false;
+let customBuildings = [...DEFAULT_BUILDINGS];
+let sortState = { key: null, col: null, dir: 'asc' };
+
+/* ===================== AUTH ===================== */
+function showError(msg){
+  document.getElementById('loginError').textContent = msg;
+}
+
+async function doLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  if(!email || !pass){ showError('أدخل البريد وكلمة المرور'); return; }
+  try{
+    await auth.signInWithEmailAndPassword(email, pass);
+  }catch(e){
+    let msg = e.message;
+    if(msg.includes('user-not-found')||msg.includes('wrong-password')||msg.includes('invalid-credential')) msg='بيانات الدخول غير صحيحة';
+    else if(msg.includes('network')) msg='تأكد من اتصال الإنترنت';
+    showError(msg);
+  }
+}
+
+function doLogout(){
+  auth.signOut();
+}
+
+auth.onAuthStateChanged(async user => {
+  if(!user){
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('mainApp').style.display = 'none';
+    document.getElementById('adminSelector').style.display = 'none';
+    document.getElementById('schoolSelector').style.display = 'none';
+    document.getElementById('userPanelBtn').style.display = 'none';
+    currentUser = null; userProfile = null; currentAdministration = null; currentSchool = null;
+    return;
+  }
+  currentUser = user;
+  const snap = await db.collection('users').doc(user.uid).get();
+  if(!snap.exists){
+    showError('هذا المستخدم غير مسجل في النظام');
+    await auth.signOut(); return;
+  }
+  userProfile = snap.data();
+  isSuperAdmin = userProfile.role === 'super_admin';
+  document.getElementById('currentUserDisplay').textContent = userProfile.name || user.email;
+  document.getElementById('loginScreen').style.display = 'none';
+
+  if(isSuperAdmin){
+    document.getElementById('userPanelBtn').style.display = 'block';
+    showAdminSelector();
+  } else {
+    document.getElementById('userPanelBtn').style.display = 'none';
+    currentAdministration = userProfile.administration;
+    if(!currentAdministration || !ADMINISTRATIONS.includes(currentAdministration)){
+      showError('لم يتم تعيين إدارة لهذا المستخدم'); await auth.signOut(); return;
+    }
+    showSchoolSelector();
+  }
+});
+
+/* ===================== SELECTORS ===================== */
+function showAdminSelector(){
+  const grid = document.getElementById('adminGrid');
+  grid.innerHTML = '';
+  ADMINISTRATIONS.forEach(adm => {
+    const card = document.createElement('div');
+    card.className = 'selector-card';
+    card.innerHTML = `<h4>${adm}</h4><p>${(SCHOOLS[adm]||[]).length} مدرسة</p>`;
+    card.onclick = () => {
+      currentAdministration = adm;
+      document.getElementById('adminSelector').style.display = 'none';
+      showSchoolSelector();
+    };
+    grid.appendChild(card);
+  });
+  document.getElementById('adminSelector').style.display = 'flex';
+}
+
+function showSchoolSelector(){
+  const sel = document.getElementById('schoolSelector');
+  const grid = document.getElementById('schoolGrid');
+  const title = document.getElementById('schoolSelectorTitle');
+  const sub = document.getElementById('schoolSelectorSub');
+  const back = document.getElementById('backBtn');
+
+  title.textContent = 'اختر المدرسة';
+  sub.textContent = 'الإدارة: ' + currentAdministration;
+  back.style.display = isSuperAdmin ? 'inline-block' : 'none';
+
+  grid.innerHTML = '';
+  (SCHOOLS[currentAdministration]||[]).forEach(sch => {
+    const card = document.createElement('div');
+    card.className = 'selector-card';
+    card.innerHTML = `<h4>${sch}</h4><p>اضغط لفتح البيانات</p>`;
+    card.onclick = () => {
+      currentSchool = sch;
+      sel.style.display = 'none';
+      startApp();
+    };
+    grid.appendChild(card);
+  });
+  sel.style.display = 'flex';
+}
+
+function goBack(){
+  document.getElementById('schoolSelector').style.display = 'none';
+  if(isSuperAdmin){
+    currentAdministration = null;
+    showAdminSelector();
+  } else {
+    doLogout();
+  }
+}
+
+/* ===================== USER MANAGEMENT ===================== */
+function toggleUserPanel(){
+  const p = document.getElementById('userPanel');
+  p.style.display = p.style.display === 'block' ? 'none' : 'block';
+  if(p.style.display === 'block') loadUsers();
+}
+
+async function loadUsers(){
+  const snap = await db.collection('users').get();
+  const tbody = document.getElementById('usersTableBody');
+  tbody.innerHTML = '';
+  snap.forEach(doc => {
+    const u = doc.data();
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${u.name||'—'}</td>
+      <td>${u.email}</td>
+      <td>${u.role==='super_admin'?'مسئول عام':'مسئول ادارة'}</td>
+      <td>${u.administration||'—'}</td>
+      <td><button class="btn ghost" onclick="deleteUser('${doc.id}')" style="color:var(--danger);border-color:var(--danger);">حذف</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function addUser(){
+  const name = document.getElementById('newUserName').value.trim();
+  const email = document.getElementById('newUserEmail').value.trim();
+  const pass = document.getElementById('newUserPass').value;
+  const role = document.getElementById('newUserRole').value;
+  const administration = document.getElementById('newUserAdmin').value;
+  if(!name||!email||!pass){ alert('أكمل جميع الحقول'); return; }
+  if(role==='admin' && !administration){ alert('اختر الإدارة للمسئول المحلي'); return; }
+  try{
+    const cred = await firebase.auth().createUserWithEmailAndPassword(email, pass);
+    await db.collection('users').doc(cred.user.uid).set({
+      name, email, role, administration: role==='admin'?administration:null, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    alert('تم إضافة المستخدم');
+    loadUsers();
+    document.getElementById('newUserName').value='';
+    document.getElementById('newUserEmail').value='';
+    document.getElementById('newUserPass').value='';
+  }catch(e){ alert('خطأ: '+e.message); }
+}
+
+async function deleteUser(uid){
+  if(!confirm('حذف المستخدم؟')) return;
+  await db.collection('users').doc(uid).delete();
+  loadUsers();
+}
+
+const newUserAdmin = document.getElementById('newUserAdmin');
+ADMINISTRATIONS.forEach(a => {
+  const o = document.createElement('option'); o.value=a; o.textContent=a; newUserAdmin.appendChild(o);
+});
+
+/* ===================== APP CORE ===================== */
+function startApp(){
+  document.getElementById('mainApp').style.display = 'block';
+  document.getElementById('adminSelector').style.display = 'none';
+  document.getElementById('schoolSelector').style.display = 'none';
+  document.getElementById('bcAdmin').textContent = currentAdministration;
+  document.getElementById('bcSchool').textContent = currentSchool;
+  buildTabs();
+  loadSchoolData();
+}
+
+function buildTabs(){
+  const tabsEl = document.getElementById('tabs');
+  const sheetsEl = document.getElementById('sheets');
+  tabsEl.innerHTML = ''; sheetsEl.innerHTML = '';
+  SECTIONS.forEach((sec, i)=>{
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn' + (i===0 ? ' active':'');
+    btn.innerHTML = `<span class="no">${String(i).padStart(2,'0')}</span> ${sec.label}`;
+    btn.onclick = ()=> switchTab(sec.key);
+    btn.dataset.key = sec.key;
+    tabsEl.appendChild(btn);
+
+    const sheet = document.createElement('section');
+    sheet.className = 'sheet' + (i===0 ? ' active':'');
+    sheet.id = 'sheet-'+sec.key;
+    sheetsEl.appendChild(sheet);
+  });
+}
+
+function switchTab(key){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.key===key));
+  document.querySelectorAll('.sheet').forEach(s=>s.classList.toggle('active', s.id==='sheet-'+key));
+  setTimeout(()=>generateQR(key), 100);
+}
+
+/* ===================== PRINT ===================== */
+function printSection(key){
+  switchTab(key);
+  setTimeout(()=>{ generateQR(key); setTimeout(()=>window.print(), 300); }, 150);
+}
+
+function printAll(){
+  refreshAllQR();
+  document.body.classList.add('print-all-mode');
+  setTimeout(()=>{
+    window.print();
+    setTimeout(()=> document.body.classList.remove('print-all-mode'), 300);
+  }, 800);
+}
+
+/* ===================== EXCEL EXPORT ===================== */
+const INFO_FIELDS = [
+  ['quality','النوعية'], ['admin','الإدارة التعليمية'], ['schoolName','اسم المدرسة'],
+  ['address','العنوان'], ['phone','رقم التليفون'], ['manager','اسم مسئول الادارة']
+];
+
+const BUILDINGS_EXCEL_HEADERS = [
+  'م','اسم المبنى / الوحدة','عدد الطوابق','عدد الفصول','حالة المبنى',
+  'طفايات الحريق','جرادل الرمل','خراطيم الإطفاء','مخارج الطوارئ','علامات إرشادية',
+  'تقييم السلامة والصحة المهنية','ملاحظات'
+];
+
+function getSectionAOA(sec){
+  if(sec.type==='info'){
+    const data = currentData[sec.key] || {};
+    return [['البيان','القيمة'], ...INFO_FIELDS.map(([k,label])=>[label, data[k]||''])];
+  }
+  if(sec.type==='budget'){
+    const rows = currentData[sec.key] || [];
+    const aoa = [['م','المادة والتخصص','اللازم بالحصص','معلم (18)','معلم أول (17)','معلم أول أ (16)','معلم خبير (16)','معلم كبير (14)','الموجود بالحصص','الفرق','الحالة','كيفية سد العجز']];
+    rows.forEach((row, i) => {
+      aoa.push([i+1, row.subject||'', row.required||0, row.teacher_normal||0, row.teacher_first||0, row.teacher_first_a||0, row.teacher_expert||0, row.teacher_senior||0, row.actual||0, row.diff||0, row.status||'', row.solution||'']);
+    });
+    return aoa;
+  }
+  if(sec.type==='buildings'){
+    const rows = currentData[sec.key] || [];
+    const aoa = [BUILDINGS_EXCEL_HEADERS];
+    const goodCounts = {}, badCounts = {};
+    EQUIPMENT_KEYS.forEach(k => { goodCounts[k]=0; badCounts[k]=0; });
+    let totalFloors = 0, totalClassrooms = 0;
+    rows.forEach((row, i)=>{
+      totalFloors += Number(row.floors||0);
+      totalClassrooms += Number(row.classrooms||0);
+      EQUIPMENT_KEYS.forEach(k => {
+        if(row[k] === STATUS_GOOD) goodCounts[k]++;
+        else if(row[k] === STATUS_BAD) badCounts[k]++;
+      });
+      aoa.push([
+        i+1, row.name||'', row.floors||'', row.classrooms||'', row.conditionStatus||'',
+        row.extinguishersStatus||'', row.sandBucketsStatus||'', row.hosesStatus||'',
+        row.exitsStatus||'', row.signsStatus||'',
+        row.safetyRatingStatus||'', row.notes||''
+      ]);
+    });
+    aoa.push(['', 'إجمالي الطوابق / الفصول', totalFloors, totalClassrooms, '', '', '', '', '', '', '', '']);
+    aoa.push(['', 'عدد المباني (متوفر بحالة جيدة)', '', '', '',
+      goodCounts.extinguishersStatus, goodCounts.sandBucketsStatus, goodCounts.hosesStatus,
+      goodCounts.exitsStatus, goodCounts.signsStatus, '', '']);
+    aoa.push(['', 'عدد المباني (متوفر بحالة غير جيدة)', '', '', '',
+      badCounts.extinguishersStatus, badCounts.sandBucketsStatus, badCounts.hosesStatus,
+      badCounts.exitsStatus, badCounts.signsStatus, '', '']);
+    return aoa;
+  }
+  const rows = currentData[sec.key] || [];
+  const headers = sec.cols.map(c=>c.label);
+  const aoa = [headers];
+  rows.forEach(row=>{
+    aoa.push(sec.cols.map(c=> row[c.k] !== undefined ? row[c.k] : ''));
+  });
+  return aoa;
+}
+
+function exportSectionExcel(key){
+  if(typeof XLSX === 'undefined'){ alert('تعذر تحميل مكتبة تصدير Excel، تأكد من الاتصال بالإنترنت'); return; }
+  const sec = SECTIONS.find(s=>s.key===key);
+  if(!sec) return;
+  const aoa = getSectionAOA(sec);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = aoa[0].map(()=>({wch:18}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sec.label.substring(0,31));
+  XLSX.writeFile(wb, `${currentSchool||'مدرسة'} - ${sec.label}.xlsx`);
+}
+
+function exportAllExcel(){
+  if(typeof XLSX === 'undefined'){ alert('تعذر تحميل مكتبة تصدير Excel، تأكد من الاتصال بالإنترنت'); return; }
+  const wb = XLSX.utils.book_new();
+  SECTIONS.forEach(sec=>{
+    const aoa = getSectionAOA(sec);
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = aoa[0].map(()=>({wch:18}));
+    XLSX.utils.book_append_sheet(wb, ws, sec.label.substring(0,31));
+  });
+  XLSX.writeFile(wb, `${currentSchool||'مدرسة'} - بيانات كاملة.xlsx`);
+}
+
+/* ===================== FIRESTORE DATA ===================== */
+function getDocPath(){
+  return db.collection('schools').doc(currentAdministration).collection('schools').doc(currentSchool);
+}
+
+async function loadSchoolData(){
+  const sync = document.getElementById('syncIndicator');
+  sync.style.display = 'block'; sync.textContent = 'جاري تحميل البيانات...';
+
+  const docRef = getDocPath();
+  const snap = await docRef.get();
+
+  if(snap.exists){
+    currentData = snap.data().data || {};
+    if(snap.data().customBuildings) customBuildings = snap.data().customBuildings;
+  } else {
+    currentData = {};
+    SECTIONS.forEach(sec => {
+      if(sec.type==='info'){
+        currentData[sec.key] = {
+          quality:'تعليم صناعي', admin: currentAdministration,
+          schoolName: currentSchool,
+          address: currentAdministration + ' شارع المنطقة الصناعية',
+          phone:'', manager:''
+        };
+      } else if(sec.type==='buildings'){
+        currentData[sec.key] = generateBuildingsDefault(sec);
+      } else if(sec.type==='budget'){
+        currentData[sec.key] = [];
+      } else {
+        currentData[sec.key] = generateDefaultRows(sec);
+      }
+    });
+    await docRef.set({
+      administration: currentAdministration,
+      school: currentSchool,
+      data: currentData,
+      customBuildings: customBuildings,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: currentUser.email
+    });
+  }
+
+  listeners.forEach(l=>l()); listeners = [];
+  const unsub = docRef.onSnapshot(snap => {
+    if(snap.exists){
+      currentData = snap.data().data || {};
+      if(snap.data().customBuildings) customBuildings = snap.data().customBuildings;
+      renderAll();
+      const lu = snap.data().updatedAt?.toDate();
+      if(lu) document.getElementById('lastUpdate').textContent = lu.toLocaleString('ar-EG');
+    }
+  });
+  listeners.push(unsub);
+
+  sync.style.display = 'none';
+  renderAll();
+}
+
+function generateDefaultRows(sec){
+  let rows = [];
+  if(sec.grouped){
+    for(let g=0; g<sec.groups; g++){
+      sec.gradeLabels.forEach(grade=>{
+        rows.push({name: sec.seedNames[g] || '', grade});
+      });
+    }
+  } else {
+    for(let r=0; r<sec.rows; r++){
+      let base = {};
+      if(sec.fixedList) base.name = sec.fixedList[r];
+      if(sec.key==='staff') base.job = sec.fixedList[r];
+      if(sec.seed && sec.seed[r]) base = {...base, ...sec.seed[r]};
+      rows.push(base);
+    }
+  }
+  rows.forEach(row => calcRowTotal(row, sec.cols));
+  return rows;
+}
+
+function generateBuildingsDefault(sec){
+  let rows = [];
+  for(let r=0; r<sec.rows; r++){
+    rows.push({
+      name: customBuildings[r] || '',
+      floors: '', classrooms: '',
+      condition: '', conditionStatus: '',
+      extinguishersStatus: '',
+      sandBucketsStatus: '',
+      hosesStatus: '',
+      exitsStatus: '',
+      signsStatus: '',
+      safetyRating: '', safetyRatingStatus: '',
+      notes: ''
+    });
+  }
+  return rows;
+}
+
+async function saveSection(key, value){
+  const sync = document.getElementById('syncIndicator');
+  sync.style.display = 'block'; sync.textContent = 'جاري الحفظ...';
+  currentData[key] = value;
+  await getDocPath().update({
+    ['data.'+key]: value,
+    customBuildings: customBuildings,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: currentUser.email
+  });
+  sync.textContent = 'تم الحفظ ✓';
+  setTimeout(()=> sync.style.display='none', 1500);
+  document.getElementById('lastUpdate').textContent = new Date().toLocaleString('ar-EG');
+}
+
+/* ===================== DELETE & SORT ===================== */
+async function deleteRow(secKey, rowIndex, count=1){
+  if(!confirm('هل أنت متأكد من حذف هذا السجل؟')) return;
+  let rows = currentData[secKey] || [];
+  if(rowIndex < 0 || rowIndex >= rows.length) return;
+  rows.splice(rowIndex, count);
+  await saveSection(secKey, rows);
+  const sec = SECTIONS.find(s => s.key === secKey);
+  if(sec.type === 'buildings') renderBuildings(sec);
+  else if(sec.type === 'budget') renderBudget(sec);
+  else renderTable(sec);
+}
+
+function sortTable(secKey, colKey){
+  let rows = currentData[secKey];
+  if(!rows || !rows.length) return;
+
+  const sec = SECTIONS.find(s => s.key === secKey);
+
+  // Toggle direction
+  if(sortState.key === secKey && sortState.col === colKey) {
+    sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortState = { key: secKey, col: colKey, dir: 'asc' };
+  }
+
+  const dir = sortState.dir === 'asc' ? 1 : -1;
+
+  // For grouped tables sorted by 'name', keep groups together
+  if(sec && sec.grouped && colKey === 'name'){
+    const groupSize = sec.gradeLabels.length;
+    // Create group array
+    let groups = [];
+    for(let i=0; i<rows.length; i+=groupSize){
+      groups.push(rows.slice(i, i+groupSize));
+    }
+    groups.sort((a, b) => {
+      const av = a[0][colKey] || '';
+      const bv = b[0][colKey] || '';
+      return String(av).localeCompare(String(bv), 'ar') * dir;
+    });
+    rows = groups.flat();
+  } else {
+    rows.sort((a, b) => {
+      let av = a[colKey], bv = b[colKey];
+      if(av === undefined || av === null) av = '';
+      if(bv === undefined || bv === null) bv = '';
+
+      const an = Number(av), bn = Number(bv);
+      if(!isNaN(an) && !isNaN(bn) && av !== '' && bv !== '') {
+        return (an - bn) * dir;
+      }
+
+      const as = String(av).trim();
+      const bs = String(bv).trim();
+      return as.localeCompare(bs, 'ar') * dir;
+    });
+  }
+
+  currentData[secKey] = rows;
+  if(sec.type === 'buildings') renderBuildings(sec);
+  else if(sec.type === 'budget') renderBudget(sec);
+  else renderTable(sec);
+}
+
+/* ===================== RENDERING ===================== */
+function renderAll(){
+  SECTIONS.forEach(sec => {
+    if(sec.type==='info') renderInfo(sec);
+    else if(sec.type==='buildings') renderBuildings(sec);
+    else if(sec.type==='budget') renderBudget(sec);
+    else renderTable(sec);
+  });
+  setTimeout(refreshActiveQR, 300);
+}
+
+
+/* ===================== QR CODE ===================== */
+function generateQR(secKey){
+  if(typeof QRCode === 'undefined'){
+    setTimeout(()=>generateQR(secKey), 600); return;
+  }
+  const sec = SECTIONS.find(s => s.key === secKey);
+  if(!sec) return;
+  const sheet = document.getElementById('sheet-'+secKey);
+  if(!sheet) return;
+  if(!sheet.classList.contains('active')) return;
+
+  const old = sheet.querySelector('.qr-wrap');
+  if(old) old.remove();
+
+  const adminIdx = ADMINISTRATIONS.indexOf(currentAdministration);
+  const adminCode = adminIdx >= 0 ? String(adminIdx) : '99';
+
+  let schoolHash = 0;
+  const schoolName = currentSchool || 'NOSCHOOL';
+  for(let i = 0; i < schoolName.length; i++){
+    schoolHash = ((schoolHash << 5) - schoolHash) + schoolName.charCodeAt(i);
+    schoolHash = schoolHash & schoolHash;
+  }
+  const schoolCode = Math.abs(schoolHash).toString(36).substring(0, 6).toUpperCase();
+
+  const viewerUrl = 'viewer.html?a=' + adminCode + '&s=' + schoolCode + '&sec=' + secKey;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'qr-wrap';
+  const qrDiv = document.createElement('div');
+  const label = document.createElement('div');
+  label.className = 'qr-label';
+  label.textContent = sec.label;
+  const hint = document.createElement('div');
+  hint.className = 'qr-hint';
+  hint.textContent = 'امسح لفتح صفحة البيانات';
+
+  wrap.appendChild(qrDiv);
+  wrap.appendChild(label);
+  wrap.appendChild(hint);
+  sheet.appendChild(wrap);
+
+  try {
+    new QRCode(qrDiv, {
+      text: viewerUrl,
+      width: 180,
+      height: 180,
+      colorDark: "#000",
+      colorLight: "#fff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch(err) {
+    console.error('QR error:', err);
+  }
+}
+
+function refreshActiveQR(){
+  const active = document.querySelector('.sheet.active');
+  if(active){
+    generateQR(active.id.replace('sheet-', ''));
+  }
+}
+
+function refreshAllQR(){
+  if(typeof QRCode === 'undefined'){ setTimeout(refreshAllQR, 800); return; }
+  SECTIONS.forEach(sec => generateQR(sec.key));
+}
+
+function testQR(){
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:2px solid #000;padding:20px;z-index:99999;text-align:center;';
+  div.innerHTML = '<h3 style="margin:0 0 10px;font-family:Changa;">اختبار QR</h3><div id="test-qr"></div><br><button onclick="this.parentElement.remove()" style="padding:8px 16px;font-family:Changa;cursor:pointer;">إغلاق</button>';
+  document.body.appendChild(div);
+  try{
+    new QRCode(document.getElementById('test-qr'), {
+      text: 'viewer.html?a=4&s=ABC123&sec=school-info',
+      width: 150, height: 150, colorDark: "#000", colorLight: "#fff"
+    });
+  }catch(e){ alert('خطأ: ' + e.message); }
+}
+
+function calcRowTotal(row, cols){
+  cols.filter(c=>c.type==='sum').forEach(c=>{
+    let s = 0;
+    c.of.forEach(k=> s += Number(row[k]||0));
+    row[c.k] = s;
+  });
+}
+
+function updateHeader(data){
+  if(data.schoolName) document.getElementById('schoolNameDisplay').textContent = data.schoolName;
+  if(data.quality) document.getElementById('headerQuality').textContent = data.quality;
+  if(data.address || data.admin) document.getElementById('schoolAddrDisplay').textContent = `${data.address||''} — الإدارة التعليمية: ${data.admin||''}`;
+  if(data.phone) document.getElementById('schoolPhoneDisplay').textContent = data.phone;
+  if(data.manager) document.getElementById('schoolManagerDisplay').textContent = data.manager;
+}
+
+function renderInfo(sec){
+  const el = document.getElementById('sheet-'+sec.key);
+  const data = currentData[sec.key] || {};
+  const fields = [
+    ['quality','النوعية'], ['admin','الإدارة التعليمية'], ['schoolName','اسم المدرسة'],
+    ['address','العنوان'], ['phone','رقم التليفون'], ['manager','اسم مسئول الادارة']
+  ];
+  el.innerHTML = `
+    <div class="sheet-head">
+      <div><h2>${sec.title || sec.label}</h2><p>البيانات الأساسية للمدرسة — ${currentSchool}</p></div>
+      <div class="sheet-tools">
+        <button class="tool-btn" onclick="printSection('${sec.key}')">🖨️ طباعة</button>
+        <button class="tool-btn" onclick="exportSectionExcel('${sec.key}')">📊 Excel</button>
+        <span class="save-state saved">محفوظ في السحابة</span>
+      </div>
+    </div>
+    <div class="sheet-body">
+      <div class="info-grid">
+        ${fields.map(([k,label])=>{
+          if(k==='quality'){
+            return `
+          <div class="info-item">
+            <label>${label}</label>
+            <select data-k="${k}">
+              <option value="">-- اختر النوعية --</option>
+              ${QUALITY_OPTIONS.map(o=>`<option value="${o}" ${data[k]===o?'selected':''}>${o}</option>`).join('')}
+            </select>
+          </div>`;
+          }
+          return `
+          <div class="info-item">
+            <label>${label}</label>
+            <input data-k="${k}" value="${(data[k]||'').toString().replace(/"/g,'&quot;')}">
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  el.querySelectorAll('input, select').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      data[inp.dataset.k] = inp.value;
+      await saveSection(sec.key, data);
+      updateHeader(data);
+    });
+  });
+  updateHeader(data);
+}
+
+function renderTable(sec){
+  const el = document.getElementById('sheet-'+sec.key);
+  let rows = currentData[sec.key];
+  if(rows === undefined || rows === null) rows = generateDefaultRows(sec);
+  else rows = rows || [];
+
+  rows.forEach(row => calcRowTotal(row, sec.cols));
+
+  const totals = {};
+  sec.cols.forEach(c=>{ if(c.type==='number' || c.type==='sum') totals[c.k]=0; });
+  rows.forEach(row=> sec.cols.forEach(c=>{ if(c.type==='number'||c.type==='sum') totals[c.k]+= Number(row[c.k]||0); }));
+
+  let bodyRows = '';
+  let displayIndex = 0;
+  rows.forEach((row, ri)=>{
+    const isFirstOfGroup = sec.grouped ? (ri % sec.gradeLabels.length === 0) : true;
+    if(isFirstOfGroup) displayIndex++;
+    const idxCell = (!sec.grouped || ri % sec.gradeLabels.length === 0)
+      ? `<td class="idx" rowspan="${sec.grouped?sec.gradeLabels.length:1}">${displayIndex}</td>` : '';
+
+    let cells = '';
+    sec.cols.forEach(col=>{
+      if(col.k==='grade'){ cells += `<td class="idx">${row.grade}</td>`; return; }
+      const val = row[col.k]!==undefined ? row[col.k] : '';
+      if(col.type==='sum'){
+        cells += `<td class="total-cell"><input data-row="${ri}" data-k="${col.k}" value="${val}" disabled></td>`;
+      } else if(col.type==='number'){
+        cells += `<td><input type="number" min="0" data-row="${ri}" data-k="${col.k}" value="${val}"></td>`;
+      } else if(col.type==='text-list'){
+        const listId = sec.key+'-'+col.k+'-list';
+        cells += `<td class="name-cell"><input list="${listId}" data-row="${ri}" data-k="${col.k}" value="${(val+'').replace(/"/g,'&quot;')}"></td>`;
+      } else if(col.type==='fixed' || col.type==='fixed-list'){
+        if(col.type==='fixed-list' && col.list){
+          const listId = sec.key+'-'+col.k+'-list';
+          cells += `<td class="name-cell"><input list="${listId}" data-row="${ri}" data-k="${col.k}" value="${(val+'').replace(/"/g,'&quot;')}" style="text-align:center;"></td>`;
+        } else {
+          cells += `<td class="idx" style="text-align:right;padding-right:10px;">${val}</td>`;
+        }
+      } else {
+        cells += `<td><input data-row="${ri}" data-k="${col.k}" value="${(val+'').replace(/"/g,'&quot;')}"></td>`;
+      }
+    });
+
+    // Delete button: for grouped tables, only show on first row of group and delete whole group
+    const isGroupStart = !sec.grouped || (ri % sec.gradeLabels.length === 0);
+    const deleteRowspan = sec.grouped ? ` rowspan="${sec.gradeLabels.length}"` : '';
+    const deleteCell = isGroupStart 
+      ? `<td class="action-cell"${deleteRowspan}><button class="delete-btn" onclick="deleteRow('${sec.key}', ${ri}, ${sec.grouped ? sec.gradeLabels.length : 1})">🗑️ حذف</button></td>`
+      : '';
+
+    bodyRows += `<tr>${idxCell}${cells}${deleteCell}</tr>`;
+  });
+
+  const headCols = ['م', ...sec.cols.map(c=>c.label), 'إجراء'];
+  const footCells = sec.cols.map(c=>{
+    if(c.type==='number'||c.type==='sum') return `<td>${totals[c.k]}</td>`;
+    return `<td></td>`;
+  }).join('');
+
+  const datalists = sec.cols.filter(c=>c.type==='text-list' || c.type==='fixed-list').map(c=>
+    `<datalist id="${sec.key}-${c.k}-list">${c.list.map(v=>`<option value="${v}">`).join('')}</datalist>`
+  ).join('');
+
+  // Build sortable headers
+  const headerHTML = headCols.map((h, i) => {
+    if(i === 0) return `<th>${h}</th>`; // Index column
+    if(i === headCols.length - 1) return `<th>${h}</th>`; // Action column
+    const col = sec.cols[i-1];
+    if(!col.sortable) return `<th>${h}</th>`;
+    const sortClass = (sortState.key === sec.key && sortState.col === col.k) ? sortState.dir : '';
+    return `<th class="sortable ${sortClass}" onclick="sortTable('${sec.key}', '${col.k}')">${h}</th>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="sheet-head">
+      <div><h2>${sec.title}</h2><p>${rows.length} صف — العمود الأخير محسوب تلقائيًا — ${currentSchool}</p></div>
+      <div class="sheet-tools">
+        <button class="tool-btn" onclick="printSection('${sec.key}')">🖨️ طباعة</button>
+        <button class="tool-btn" onclick="exportSectionExcel('${sec.key}')">📊 Excel</button>
+        <span class="save-state saved">محفوظ في السحابة</span>
+      </div>
+    </div>
+    <div class="sheet-body">
+      <div class="table-scroll">
+        <table>
+          <thead><tr>${headerHTML}</tr></thead>
+          <tbody>${bodyRows}</tbody>
+          <tfoot><tr><td>الإجمالي</td>${footCells}<td></td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+    ${datalists}
+    <button class="add-row-btn" onclick="addRow('${sec.key}')">+ إضافة صف جديد</button>`;
+
+  el.querySelectorAll('tbody input, tbody select').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      const r = Number(inp.dataset.row), k = inp.dataset.k;
+      rows[r][k] = inp.type==='number' ? Number(inp.value||0) : inp.value;
+      calcRowTotal(rows[r], sec.cols);
+      await saveSection(sec.key, rows);
+      renderTable(sec);
+    });
+  });
+}
+
+
+/* ===================== BUDGET RENDERER ===================== */
+function renderBudget(sec){
+  const el = document.getElementById('sheet-'+sec.key);
+  let rows = currentData[sec.key];
+  if(rows === undefined || rows === null) rows = [];
+  else rows = rows || [];
+
+  // Ensure all rows have required fields
+  rows.forEach(row => {
+    if(row.subject === undefined) row.subject = '';
+    if(row.required === undefined) row.required = 0;
+    if(row.teacher_normal === undefined) row.teacher_normal = 0;
+    if(row.teacher_first === undefined) row.teacher_first = 0;
+    if(row.teacher_first_a === undefined) row.teacher_first_a = 0;
+    if(row.teacher_expert === undefined) row.teacher_expert = 0;
+    if(row.teacher_senior === undefined) row.teacher_senior = 0;
+    if(row.actual === undefined) row.actual = 0;
+    if(row.diff === undefined) row.diff = 0;
+    if(row.status === undefined) row.status = 'متوازن';
+    if(row.solution === undefined) row.solution = '';
+  });
+
+  // Calculate derived values: actual = sum of teachers * their hours
+  // 1 معلم = 18, 1 معلم أول = 17, 1 معلم أول أ = 16, 1 معلم خبير = 16, 1 معلم كبير = 14
+  rows.forEach(row => {
+    const normal = Number(row.teacher_normal || 0) * 18;
+    const first = Number(row.teacher_first || 0) * 17;
+    const firstA = Number(row.teacher_first_a || 0) * 16;
+    const expert = Number(row.teacher_expert || 0) * 16;
+    const senior = Number(row.teacher_senior || 0) * 14;
+    row.actual = normal + first + firstA + expert + senior;
+    row.diff = Number(row.required || 0) - row.actual;
+    if(row.diff > 0) row.status = 'عجز';
+    else if(row.diff < 0) row.status = 'زيادة';
+    else row.status = 'متوازن';
+  });
+
+  // Calculate totals
+  const totals = {required:0, teacher_normal:0, teacher_first:0, teacher_first_a:0, teacher_expert:0, teacher_senior:0, actual:0, diff:0};
+  rows.forEach(row => {
+    totals.required += Number(row.required || 0);
+    totals.teacher_normal += Number(row.teacher_normal || 0);
+    totals.teacher_first += Number(row.teacher_first || 0);
+    totals.teacher_first_a += Number(row.teacher_first_a || 0);
+    totals.teacher_expert += Number(row.teacher_expert || 0);
+    totals.teacher_senior += Number(row.teacher_senior || 0);
+    totals.actual += Number(row.actual || 0);
+    totals.diff += Number(row.diff || 0);
+  });
+
+  let bodyRows = '';
+  rows.forEach((row, ri) => {
+    let statusClass = '';
+    if(row.status === 'زيادة') statusClass = 'st-good';
+    else if(row.status === 'عجز') statusClass = 'st-bad';
+    else statusClass = 'st-none';
+
+    bodyRows += `
+      <tr>
+        <td class="idx">${ri+1}</td>
+        <td class="name-cell"><input list="${sec.key}-subject-list" data-row="${ri}" data-k="subject" value="${(row.subject||'').replace(/"/g,'&quot;')}"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="required" value="${row.required || ''}"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="teacher_normal" value="${row.teacher_normal || ''}"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="teacher_first" value="${row.teacher_first || ''}"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="teacher_first_a" value="${row.teacher_first_a || ''}"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="teacher_expert" value="${row.teacher_expert || ''}"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="teacher_senior" value="${row.teacher_senior || ''}"></td>
+        <td class="total-cell"><input data-row="${ri}" data-k="actual" value="${row.actual}" disabled></td>
+        <td class="total-cell"><input data-row="${ri}" data-k="diff" value="${row.diff}" disabled></td>
+        <td><input data-row="${ri}" data-k="status" value="${row.status}" disabled class="status-select ${statusClass}" style="text-align:center;font-weight:700;"></td>
+        <td class="name-cell"><input list="${sec.key}-solution-list" data-row="${ri}" data-k="solution" value="${(row.solution||'').replace(/"/g,'&quot;')}"></td>
+        <td class="action-cell"><button class="delete-btn" onclick="deleteRow('${sec.key}', ${ri}, 1)">🗑️ حذف</button></td>
+      </tr>
+    `;
+  });
+
+  const headerLabels = ['م', 'المادة والتخصص', 'اللازم<br>بالحصص', 'معلم<br>(18)', 'معلم أول<br>(17)', 'معلم أول أ<br>(16)', 'معلم خبير<br>(16)', 'معلم كبير<br>(14)', 'الموجود<br>بالحصص', 'الفرق', 'الحالة', 'كيفية سد<br>العجز', 'إجراء'];
+
+  const headerHTML = headerLabels.map((h, i) => {
+    if(i === 0 || i === headerLabels.length - 1) return `<th>${h}</th>`;
+    const col = sec.cols[i-1];
+    if(!col || !col.sortable) return `<th>${h}</th>`;
+    const sortClass = (sortState.key === sec.key && sortState.col === col.k) ? sortState.dir : '';
+    return `<th class="sortable ${sortClass}" onclick="sortTable('${sec.key}', '${col.k}')">${h}</th>`;
+  }).join('');
+
+  const datalists = `
+    <datalist id="${sec.key}-subject-list">${BUDGET_ITEMS.map(v=>`<option value="${v}">`).join('')}</datalist>
+    <datalist id="${sec.key}-solution-list"><option value="فوق النصاب"><option value="ندب إلى المدرسة"><option value="مدرس بالحصة"><option value="خدمة عامة"><option value="مشاركة مجتمعية"></datalist>
+  `;
+
+  el.innerHTML = `
+    <div class="sheet-head">
+      <div><h2>${sec.title}</h2><p>${rows.length} صف — الموجود بالحصص = (معلم×18) + (أول×17) + (أول أ×16) + (خبير×16) + (كبير×14) — ${currentSchool}</p></div>
+      <div class="sheet-tools">
+        <button class="tool-btn" onclick="printSection('${sec.key}')">🖨️ طباعة</button>
+        <button class="tool-btn" onclick="exportSectionExcel('${sec.key}')">📊 Excel</button>
+        <span class="save-state saved">محفوظ في السحابة</span>
+      </div>
+    </div>
+    <div class="sheet-body">
+      <div class="legend-row" style="margin-bottom:18px;">
+        <span class="legend-chip st-good">زيادة (الموجود > اللازم)</span>
+        <span class="legend-chip st-bad">عجز (الموجود < اللازم)</span>
+        <span class="legend-chip st-none">متوازن (الموجود = اللازم)</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>${headerHTML}</tr></thead>
+          <tbody>${bodyRows}</tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" style="text-align:right;padding-right:14px;font-weight:700;">الإجمالي</td>
+              <td>${totals.required}</td>
+              <td>${totals.teacher_normal}</td>
+              <td>${totals.teacher_first}</td>
+              <td>${totals.teacher_first_a}</td>
+              <td>${totals.teacher_expert}</td>
+              <td>${totals.teacher_senior}</td>
+              <td>${totals.actual}</td>
+              <td>${totals.diff}</td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    ${datalists}
+    <button class="add-row-btn" onclick="addRow('${sec.key}')">+ إضافة صف جديد</button>
+  `;
+
+  el.querySelectorAll('tbody input').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      const r = Number(inp.dataset.row), k = inp.dataset.k;
+      rows[r][k] = inp.type === 'number' ? Number(inp.value || 0) : inp.value;
+      await saveSection(sec.key, rows);
+      renderBudget(sec);
+    });
+  });
+}
+
+/* ===================== ADD ROW ===================== */
+async function addRow(secKey){
+  const sec = SECTIONS.find(s => s.key === secKey);
+  if(!sec) return;
+  let rows = currentData[secKey];
+  if(rows === undefined || rows === null) rows = generateDefaultRows(sec);
+  else rows = rows || [];
+
+  if(sec.type === 'budget'){
+    let newRow = {subject:'', required:0, teacher_normal:0, teacher_first:0, teacher_first_a:0, teacher_expert:0, teacher_senior:0, actual:0, diff:0, status:'متوازن', solution:''};
+    rows.push(newRow);
+  } else if(sec.grouped){
+    // Add a full group (all grade labels)
+    sec.gradeLabels.forEach(grade => {
+      let newRow = {};
+      sec.cols.forEach(col => {
+        if(col.type === 'fixed' && col.k === 'grade') newRow[col.k] = grade;
+        else newRow[col.k] = col.type === 'number' || col.type === 'sum' ? 0 : '';
+      });
+      rows.push(newRow);
+    });
+  } else {
+    let newRow = {};
+    sec.cols.forEach(col => {
+      if(col.type === 'fixed-list') newRow[col.k] = sec.fixedList[rows.length] || '';
+      else if(col.type === 'sum') newRow[col.k] = 0;
+      else newRow[col.k] = col.type === 'number' ? 0 : '';
+    });
+    rows.push(newRow);
+  }
+
+  await saveSection(secKey, rows);
+  if(sec.type === 'buildings') renderBuildings(sec);
+  else if(sec.type === 'budget') renderBudget(sec);
+  else renderTable(sec);
+}
+
+/* ===================== BUILDINGS RENDERER ===================== */
+const STATUS_GOOD = 'متوفر بحالة جيدة';
+const STATUS_BAD = 'متوفر بحالة غير جيدة';
+const STATUS_NONE = 'غير متوفر';
+const EQUIPMENT_KEYS = ['extinguishersStatus','sandBucketsStatus','hosesStatus','exitsStatus','signsStatus'];
+
+function statusBadgeClass(val){
+  if(val === STATUS_GOOD || val === 'جيد' || val === 'ممتاز') return 'st-good';
+  if(val === STATUS_BAD) return 'st-bad';
+  if(val === STATUS_NONE) return 'st-none';
+  if(val === 'مقبول') return 'st-neutral';
+  return '';
+}
+
+function renderBuildings(sec){
+  const el = document.getElementById('sheet-'+sec.key);
+  let rows = currentData[sec.key];
+  if(rows === undefined || rows === null) rows = generateBuildingsDefault(sec);
+  else rows = rows || [];
+
+  rows.forEach(row => {
+    if(!row.hasOwnProperty('conditionStatus')) row.conditionStatus = '';
+    EQUIPMENT_KEYS.forEach(k => { if(!row.hasOwnProperty(k)) row[k] = ''; });
+    if(!row.hasOwnProperty('safetyRatingStatus')) row.safetyRatingStatus = '';
+  });
+
+  const totals = {floors:0, classrooms:0};
+  const goodCounts = {}, badCounts = {};
+  EQUIPMENT_KEYS.forEach(k => { goodCounts[k]=0; badCounts[k]=0; });
+  rows.forEach(row => {
+    totals.floors += Number(row.floors||0);
+    totals.classrooms += Number(row.classrooms||0);
+    EQUIPMENT_KEYS.forEach(k => {
+      if(row[k] === STATUS_GOOD) goodCounts[k]++;
+      else if(row[k] === STATUS_BAD) badCounts[k]++;
+    });
+  });
+
+  const equipmentLabels = {
+    extinguishersStatus:' ', sandBucketsStatus:' ', hosesStatus:' ',
+    exitsStatus:' ', signsStatus:' '
+  };
+
+  let bodyRows = '';
+  rows.forEach((row, ri) => {
+    const nameOptions = customBuildings.map(b => `<option value="${b}" ${row.name===b?'selected':''}>${b}</option>`).join('');
+
+    const equipmentCells = EQUIPMENT_KEYS.map(k => `
+        <td>
+          <select class="status-select ${statusBadgeClass(row[k])}" data-row="${ri}" data-k="${k}">
+            <option value="">-- ${equipmentLabels[k]} --</option>
+            ${EQUIPMENT_STATUS_OPTIONS.map(o => `<option value="${o}" ${row[k]===o?'selected':''}>${o}</option>`).join('')}
+          </select>
+        </td>`).join('');
+
+    bodyRows += `
+      <tr>
+        <td class="idx">${ri+1}</td>
+        <td class="name-cell">
+          <input list="buildings-datalist" data-row="${ri}" data-k="name" value="${(row.name||'').replace(/"/g,'&quot;')}">
+        </td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="floors" value="${row.floors||''}" style="width:100%;padding:8px;border:none;text-align:center;"></td>
+        <td><input type="number" min="0" data-row="${ri}" data-k="classrooms" value="${row.classrooms||''}" style="width:100%;padding:8px;border:none;text-align:center;"></td>
+        <td>
+          <select class="status-select ${statusBadgeClass(row.conditionStatus)}" data-row="${ri}" data-k="conditionStatus">
+            <option value="">-- حالة المبنى --</option>
+            ${BUILDING_STATUS_OPTIONS.map(o => `<option value="${o}" ${row.conditionStatus===o?'selected':''}>${o}</option>`).join('')}
+          </select>
+        </td>
+        ${equipmentCells}
+        <td>
+          <select class="status-select ${statusBadgeClass(row.safetyRatingStatus)}" data-row="${ri}" data-k="safetyRatingStatus">
+            <option value="">-- تقييم السلامة والصحة المهنية --</option>
+            ${SAFETY_RATING_OPTIONS.map(o => `<option value="${o}" ${row.safetyRatingStatus===o?'selected':''}>${o}</option>`).join('')}
+          </select>
+        </td>
+        <td><input data-row="${ri}" data-k="notes" value="${(row.notes||'').replace(/"/g,'&quot;')}" style="width:100%;padding:8px;border:none;text-align:right;"></td>
+        <td class="action-cell"><button class="delete-btn" onclick="deleteRow('${sec.key}', ${ri}, 1)">🗑️ حذف</button></td>
+      </tr>
+    `;
+  });
+
+  // Sortable headers for buildings
+  const buildingSortableCols = [
+    {k:'name', label:'اسم المبنى / الوحدة'},
+    {k:'floors', label:'عدد<br>الطوابق'},
+    {k:'classrooms', label:'عدد<br>الفصول'},
+    {k:'conditionStatus', label:'حالة<br>المبنى'},
+    {k:'extinguishersStatus', label:'طفايات<br>الحريق'},
+    {k:'sandBucketsStatus', label:'جرادل<br>الرمل'},
+    {k:'hosesStatus', label:'خراطيم<br>الإطفاء'},
+    {k:'exitsStatus', label:'مخارج<br>الطوارئ'},
+    {k:'signsStatus', label:'علامات<br>إرشادية'},
+    {k:'safetyRatingStatus', label:'تقييم السلامة<br>والصحة المهنية'},
+    {k:'notes', label:'ملاحظات'}
+  ];
+
+  const headerHTML = ['م', ...buildingSortableCols.map(c => c.label), 'إجراء'].map((h, i) => {
+    if(i === 0) return `<th>${h}</th>`;
+    if(i === buildingSortableCols.length + 1) return `<th>${h}</th>`;
+    const col = buildingSortableCols[i-1];
+    const sortClass = (sortState.key === sec.key && sortState.col === col.k) ? sortState.dir : '';
+    return `<th class="sortable ${sortClass}" onclick="sortTable('${sec.key}', '${col.k}')">${h}</th>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="sheet-head">
+      <div><h2>🏛️ ${sec.title}</h2><p>${rows.length} صف — ${currentSchool}</p></div>
+      <div class="sheet-tools">
+        <button class="tool-btn" onclick="printSection('${sec.key}')">🖨️ طباعة</button>
+        <button class="tool-btn" onclick="exportSectionExcel('${sec.key}')">📊 Excel</button>
+        <span class="save-state saved">محفوظ في السحابة</span>
+      </div>
+    </div>
+    <!-- <div class="sheet-body">
+      <div class="legend-row">
+        <span class="legend-chip st-good">متوفر بحالة جيدة</span>
+        <span class="legend-chip st-bad">متوفر بحالة غير جيدة</span>
+        <span class="legend-chip st-none">غير متوفر</span>
+      </div> -->
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              ${headerHTML}
+            </tr>
+          </thead>
+          <tbody>${bodyRows}</tbody>
+          <tfoot>
+            <tr class="totals-row totals-good">
+              <td colspan="4" class="totals-label">✅ عدد المباني «متوفر بحالة جيدة»</td>
+              <td>—</td>
+              ${EQUIPMENT_KEYS.map(k=>`<td>${goodCounts[k]}</td>`).join('')}
+              <td>—</td><td>—</td><td>—</td>
+            </tr>
+            <tr class="totals-row totals-bad">
+              <td colspan="4" class="totals-label">⚠️ عدد المباني «متوفر بحالة غير جيدة»</td>
+              <td>—</td>
+              ${EQUIPMENT_KEYS.map(k=>`<td>${badCounts[k]}</td>`).join('')}
+              <td>—</td><td>—</td><td>—</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <button class="add-row-btn" onclick="addBuildingRow()">+ إضافة صف جديد</button>
+    </div>
+    <datalist id="buildings-datalist">${customBuildings.map(b=>`<option value="${b}">`).join('')}</datalist>
+  `;
+
+  el.querySelectorAll('tbody select, tbody input').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      const r = Number(inp.dataset.row), k = inp.dataset.k;
+
+      rows[r][k] = inp.type==='number' ? Number(inp.value||0) : inp.value;
+      // If it's a new building name not in the list, add it
+      if(k === 'name' && inp.value && !customBuildings.includes(inp.value)){
+        customBuildings.push(inp.value);
+      }
+
+      await saveSection(sec.key, rows);
+      renderBuildings(sec);
+    });
+  });
+}
+
+async function addBuildingRow(){
+  const sec = SECTIONS.find(s => s.key === 'buildings');
+  let rows = currentData[sec.key] || [];
+  rows.push({
+    name: '', floors: '', classrooms: '',
+    conditionStatus: '',
+    extinguishersStatus: '',
+    sandBucketsStatus: '',
+    hosesStatus: '',
+    exitsStatus: '',
+    signsStatus: '',
+    safetyRatingStatus: '',
+    notes: ''
+  });
+  await saveSection(sec.key, rows);
+  renderBuildings(sec);
+}
+
+/* ===================== INIT ===================== */
+['loginEmail','loginPassword'].forEach(id=>{
+  document.getElementById(id).addEventListener('keypress', e=>{ if(e.key==='Enter') doLogin(); });
+});
+
+
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    const active = document.querySelector('.sheet.active');
+    if(active) generateQR(active.id.replace('sheet-', ''));
+  }, 1500);
+});
+</script>
+</body>
+</html>
